@@ -17,7 +17,7 @@
     "mysql2": "^2.3.3",
     "nodemon": "^2.0.15",
     "sequelize": "^6.18.0",
-    "sequelize-auto": "^0.8.8"
+    "sqlstring": "^2.3.3"
   },
   "nodemonConfig": {
     "restartable": "rs",
