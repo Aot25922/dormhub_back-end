@@ -11,10 +11,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: 'name'
       },
-      zipcode: {
+      zipCodeId: {
         type: DataTypes.CHAR(5),
         primaryKey: true,
-        field: 'zipcode'
+        field: 'zipCodeId'
       }
     }, {
       tableName: 'subDistrict'

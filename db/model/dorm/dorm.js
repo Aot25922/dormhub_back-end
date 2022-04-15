@@ -6,6 +6,11 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         field: 'dormId'
       },
+      name: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'name'
+      },
       openTime: {
         type: DataTypes.DATE,
         allowNull: true,
