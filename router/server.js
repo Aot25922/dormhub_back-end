@@ -3,7 +3,7 @@ const express = require('express')
 const chalk = require('chalk')
 const debug = require('debug')('app')
 const app = express()
-const port = process.env.PORT
+const port = 80
 const dorms = require('./dorm')
 app.use('/dorm',dorms)
 
