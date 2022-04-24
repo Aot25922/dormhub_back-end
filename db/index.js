@@ -26,20 +26,21 @@ db.DataTypes = DataTypes;
 db.Sequelize = Sequelize;
 
 // ใช้ Summon Model ที่เราสร้างเเละใส่(sequelize {เพื่อระบุ DB ที่ใช้อ้างอิง} ,DataTypes {ใช้ระบุประเภทข้อมูลใน Model})
-db.subDistrict = require('./model/address/subDistrict')(sequelize, DataTypes)
-db.district = require('./model/address/district')(sequelize, DataTypes)
-db.address = require('./model/address/address')(sequelize, DataTypes)
-db.province = require('./model/address/province')(sequelize, DataTypes)
-db.region = require('./model/address/region')(sequelize, DataTypes)
-db.booking = require('./model/dorm/account/booking')(sequelize, DataTypes)
-db.userAccount = require('./model/dorm/account/userAccount')(sequelize, DataTypes)
-db.bank = require('./model/dorm/banking/bank')(sequelize, DataTypes)
-db.bankAccount = require('./model/dorm/banking/bankAccount')(sequelize, DataTypes)
-db.detail = require('./model/dorm/room/detail')(sequelize, DataTypes)
-db.room = require('./model/dorm/room/room')(sequelize, DataTypes)
-db.roomType = require('./model/dorm/room/roomType')(sequelize, DataTypes)
-db.dorm = require('./model/dorm/dorm')(sequelize, DataTypes)
-db.media = require('./model/dorm/media')(sequelize, DataTypes)
+db.subDistrict = require('./model/address/subDistrict')(sequelize, Sequelize)
+db.district = require('./model/address/district')(sequelize, Sequelize)
+db.address = require('./model/address/address')(sequelize, Sequelize)
+db.province = require('./model/address/province')(sequelize, Sequelize)
+db.region = require('./model/address/region')(sequelize, Sequelize)
+db.booking = require('./model/dorm/account/booking')(sequelize, Sequelize)
+db.userAccount = require('./model/dorm/account/userAccount')(sequelize, Sequelize)
+db.bank = require('./model/dorm/banking/bank')(sequelize, Sequelize)
+db.bankAccount = require('./model/dorm/banking/bankAccount')(sequelize,Sequelize)
+db.facility = require('./model/dorm/room/facility')(sequelize, Sequelize)
+db.room = require('./model/dorm/room/room')(sequelize, Sequelize)
+db.roomType = require('./model/dorm/room/roomType')(sequelize, Sequelize)
+db.dorm = require('./model/dorm/dorm')(sequelize, Sequelize)
+db.media = require('./model/dorm/media')(sequelize, Sequelize)
+db.dormHasRoomType = require('./model/dorm/room/dormHasRoomType')(sequelize,Sequelize)
 
 //เชื่อมความสัมพันธ์
 db.subDistrict.hasMany(db.address, {
@@ -86,36 +87,37 @@ db.province.belongsTo(db.region, {
   foreignKey: 'regionId'
 })
 
-db.address.hasMany(db.userAccount, {
+db.address.hasOne(db.userAccount, {
   foreignKey: {
     name: 'addressId',
     field: 'addressId'
-  },
-  allowNull: false
+  }
 })
 db.userAccount.belongsTo(db.address, {
   foreignKey: 'addressId'
 })
 
-db.userAccount.hasMany(db.dorm, {
-  foreignKey: {
-    name: 'ownerId',
-    field: 'ownerId'
-  }
+db.userAccount.belongsToMany(db.dorm, {
+  through: 'dormHasOwner',
+  foreignKey: 'ownId',
+  otherKey: 'dormId'
 })
-db.dorm.belongsTo(db.userAccount, {
-  foreignKey: 'ownerId'
+db.dorm.belongsToMany(db.userAccount, {
+  through: 'dormHasOwner',
+  foreignKey: 'dormId',
+  otherKey: 'ownId'
 })
 
+db.address.belongsTo(db.dorm,{
+  foreignKey: 'addressId'
+}
+)
 db.dorm.hasOne(db.address, {
   foreignKey: {
     name: 'addressId',
-    field: 'addressId'
+    field: 'addressId',
   },
   allowNull: false
-})
-db.address.belongsTo(db.dorm, {
-  foreignKey: 'addressId'
 })
 
 db.dorm.hasMany(db.bankAccount, {
@@ -172,14 +174,14 @@ db.room.belongsTo(db.dorm,{
   foreignKey:'dormId'
 })
 
-db.booking.hasMany(db.room,{
+db.room.hasOne(db.booking,{
   foreignKey:{
-    name:'bookingId',
-    field:'bookingId'
+    name:'roomId',
+    field:'roomId'
   }
 })
-db.room.belongsTo(db.booking,{
-  foreignKey:'aggreementId'
+db.booking.belongsTo(db.room,{
+  foreignKey:'roomId'
 })
 
 db.roomType.hasMany(db.media,{
@@ -202,15 +204,36 @@ db.room.belongsTo(db.roomType,{
   foreignKey:'roomTypeId'
 })
 
-db.roomType.belongsToMany(db.detail,{
-  through: 'roomDetail',
+db.roomType.belongsToMany(db.facility,{
+  through: 'roomFacility',
   foreignKey:'roomTypeId',
-  otherKey:'detailId'
+  otherKey:'facilityId'
 })
-db.detail.belongsToMany(db.roomType,{
-  through: 'roomDetail',
-  foreignKey:'detailId',
+db.facility.belongsToMany(db.roomType,{
+  through: 'roomFacility',
+  foreignKey:'facilityId',
   otherKey:'roomTypeId'
+})
+
+db.bankAccount.hasMany(db.booking,{
+  foreignKey:{
+    name:'bankAccId',
+    field:'bankAccId'
+  }
+})
+db.booking.belongsTo(db.bankAccount,{
+  foreignKey : 'bankAccId'
+})
+
+db.dorm.belongsToMany(db.roomType,{
+  through: db.dormHasRoomType,
+  foreignKey: 'dormId',
+  otherKey: 'roomTypeId',
+})
+db.roomType.belongsToMany(db.dorm,{
+  through: db.dormHasRoomType,
+  foreignKey: 'roomTypeId',
+  otherKey: 'dormId',
 })
 
 module.exports = db;

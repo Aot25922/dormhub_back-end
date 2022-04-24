@@ -1,4 +1,4 @@
-module.exports = (sequelize, DataTypes) => {
+module.exports = (sequelize,DataTypes) => {
   const address = sequelize.define(
     'address', {
       addressId: {
@@ -17,9 +17,14 @@ module.exports = (sequelize, DataTypes) => {
         field: 'street'
       },
       alley: {
-        type: DataTypes.STRING(5),
+        type: DataTypes.STRING(50),
         allowNull: true,
         field: 'alley'
+      },
+      subDistrictId:{
+        type : DataTypes.STRING(4),
+        allowNull: false,
+        field: 'subDistrictId'
       }
     }, {
       tableName: 'address'

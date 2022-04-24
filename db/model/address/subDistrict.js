@@ -13,8 +13,13 @@ module.exports = (sequelize, DataTypes) => {
       },
       zipCodeId: {
         type: DataTypes.CHAR(5),
-        primaryKey: true,
+        allowNull: false,
         field: 'zipCodeId'
+      },
+      districtId: {
+        type: DataTypes.STRING(5),
+        allowNull: false,
+        field: 'districtId'
       }
     }, {
       tableName: 'subDistrict'

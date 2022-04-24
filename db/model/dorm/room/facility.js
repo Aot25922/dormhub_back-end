@@ -1,10 +1,10 @@
 module.exports = (sequelize, DataTypes) => {
-  const detail = sequelize.define(
-    'detail', {
-      detailId: {
+  const facility = sequelize.define(
+    'facility', {
+      facilityId: {
         type: DataTypes.STRING(5),
         primaryKey: true,
-        field: 'detailId'
+        field: 'facilityId'
       },
       name: {
         type: DataTypes.STRING(50),
@@ -17,9 +17,9 @@ module.exports = (sequelize, DataTypes) => {
         field: 'description'
       }
     }, {
-      tableName: 'detail'
+      tableName: 'facility'
     }
   );
 
-  return detail;
+  return facility;
 }

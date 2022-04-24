@@ -21,21 +21,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: 'floors'
       },
-      price: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        field: 'price'
-      },
       description: {
         type: DataTypes.STRING(200),
         allowNull: true,
         field: 'description'
-      },
-      deposit: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        field: 'deposit'
-      },
+      }
     }, {
       tableName: 'room'
     }

@@ -1,4 +1,4 @@
-module.exports = (sequelize, DataTypes) => {
+module.exports = (sequelize,DataTypes) => {
   const dorm = sequelize.define(
     'dorm', {
       dormId: {
@@ -46,6 +46,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: 'waterPerUnit'
       },
+      addressId: {
+        type : DataTypes.STRING(5),
+        allowNull: false,
+        field:'addressId'
+      }
     }, {
       tableName: 'dorm'
     }
