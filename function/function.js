@@ -34,7 +34,19 @@ async function roomIdGenerator() {
         ],
         limit: 1
     })
-    data = parseInt(data[0].addressId) + 1
+    data = parseInt(data[0].roomId) + 1
+    return data
+}
+
+async function roomTypeIdGenerator() {
+    data = await roomType.findAll({
+        attributes: ['roomTypeId'],
+        order: [
+            ['roomTypeId', 'DESC']
+        ],
+        limit: 1
+    })
+    data = parseInt(data[0].roomTypeId) + 1
     return data
 }
 
@@ -46,7 +58,7 @@ async function mediaIdGenerator() {
         ],
         limit: 1
     })
-    data = parseInt(data[0].addressId) + 1
+    data = parseInt(data[0].mediaId) + 1
     return data
 }
-module.exports = { addressIdGenerator, dormIdGenerator, roomIdGenerator, mediaIdGenerator }
+module.exports = { addressIdGenerator, dormIdGenerator, roomIdGenerator, mediaIdGenerator, roomTypeIdGenerator }

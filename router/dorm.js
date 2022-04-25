@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
               }
             }
           }
-        }, { model: roomType }]
+        }, roomType , room ]
     })
     if (!result) {
       res.status(500).send('Error')
@@ -115,18 +115,13 @@ router.post('/register', async (req, res) => {
     res.status(500)
     console.log(err)
   }
-  await dorm.create({
-    dormId: new_dormId,
-    name: newData.dorm.name,
-    openTime: newData.dorm.openTime,
-    closeTime: newData.dorm.closeTime,
-    description: newData.dorm.description,
-    rating: newData.dorm.rating,
-    acceptPercent: newData.dorm.acceptPercent,
-    elecPerUnit: newData.dorm.elecPerUnit,
-    waterPerUnit: newData.dorm.waterPerUnit,
-    addressId: new_addressId
-  })
+  for(i in newData.roomType){
+    roomtypeid = await func.roomTypeIdGenerator()
+    await roomType.create({
+      roomTypeId : roomtypeid,
+      type : newData.roomType[i].type
+    })
+  }
 })
 
 router.delete('/:dormId', async (req, res) => {
