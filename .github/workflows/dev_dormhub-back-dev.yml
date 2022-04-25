@@ -52,5 +52,5 @@ jobs:
         with:
           app-name: 'dormhub-back-dev'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_87BB8044180540D1BE5C168FB758C0E9 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_180259030E1E47E884FBB532D1F942F1 }}
           package: .
