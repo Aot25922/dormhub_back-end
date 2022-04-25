@@ -4,15 +4,27 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "set DEBUG=* & node server.js"
+    "test": "jest",
+    "start": "set DEBUG=* & nodemon router/server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "chalk": "^4.1.2",
+    "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "express": "^4.17.3",
-    "mysql": "^2.18.1"
+    "mysql": "^2.18.1",
+    "mysql2": "^2.3.3",
+    "nodemon": "^2.0.15",
+    "sequelize": "^6.19.0",
+    "sqlstring": "^2.3.3"
+  },
+  "nodemonConfig": {
+    "restartable": "rs",
+    "delay": "2000"
+  },
+  "devDependencies": {
+    "jest": "^27.5.1"
   }
 }
