@@ -4,7 +4,7 @@ const chalk = require('chalk')
 const debug = require('debug')('app')
 const app = express()
 const cors = require('cors')
-const port = 80
+const port = process.env.PORT || 3001
 const dorms = require('./dorm')
 app.use(cors())
 app.use('/dorm',dorms)
