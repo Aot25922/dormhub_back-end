@@ -37,10 +37,10 @@ router.get('/', async (req, res) => {
           }
         }, { model: roomType }]
     })
-    if(!result){
-    res.status(200).json(result)
-    }else{
+    if (!result) {
       res.status(500).send('Error')
+    } else {
+      res.status(200).json(result)
     }
   } catch (err) {
     res.json(err)
@@ -76,7 +76,11 @@ router.get('/:dormId', async (req, res) => {
           model: roomType,
         }]
       })
-    res.json(result)
+    if (!result) {
+      res.status(500).send('Error')
+    } else {
+      res.status(200).json(result)
+    }
   } catch (err) {
     res.json(err)
   }
@@ -86,18 +90,35 @@ router.post('/register', async (req, res) => {
   newData = req.body.data;
   new_dormId = await func.dormIdGenerator()
   new_addressId = await func.addressIdGenerator()
-  try{
-  await address.create({
-    addressId : new_addressId,
-    number: newData.address.number,
-    street: newData.address.street,
-    alley: newData.address.alley,
-    subDistrictId: newData.address.subDistrictId
-  })
+  try {
+    await address.create({
+      addressId: new_addressId,
+      number: newData.address.number,
+      street: newData.address.street,
+      alley: newData.address.alley,
+      subDistrictId: newData.address.subDistrictId
+    })
+    await dorm.create({
+      dormId: new_dormId,
+      name: newData.dorm.name,
+      openTime: newData.dorm.openTime,
+      closeTime: newData.dorm.closeTime,
+      description: newData.dorm.description,
+      rating: newData.dorm.rating,
+      acceptPercent: newData.dorm.acceptPercent,
+      elecPerUnit: newData.dorm.elecPerUnit,
+      waterPerUnit: newData.dorm.waterPerUnit,
+      addressId: new_addressId
+    })
+    res.status(200)
+  } catch (err) {
+    res.status(500)
+    console.log(err)
+  }
   await dorm.create({
     dormId: new_dormId,
     name: newData.dorm.name,
-    openTime: newData.dorm. openTime,
+    openTime: newData.dorm.openTime,
     closeTime: newData.dorm.closeTime,
     description: newData.dorm.description,
     rating: newData.dorm.rating,
@@ -106,23 +127,6 @@ router.post('/register', async (req, res) => {
     waterPerUnit: newData.dorm.waterPerUnit,
     addressId: new_addressId
   })
-  res.status(200)
-}catch(err){
-  res.status(500)
-  console.log(err)
-}
-await dorm.create({
-  dormId: new_dormId,
-  name: newData.dorm.name,
-  openTime: newData.dorm. openTime,
-  closeTime: newData.dorm.closeTime,
-  description: newData.dorm.description,
-  rating: newData.dorm.rating,
-  acceptPercent: newData.dorm.acceptPercent,
-  elecPerUnit: newData.dorm.elecPerUnit,
-  waterPerUnit: newData.dorm.waterPerUnit,
-  addressId: new_addressId
-})
 })
 
 router.delete('/:dormId', async (req, res) => {
