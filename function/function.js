@@ -11,6 +11,7 @@ async function addressIdGenerator() {
         limit: 1
     })
     data = parseInt(data[0].addressId) + 1
+    console.log(data)
     return data
 }
 

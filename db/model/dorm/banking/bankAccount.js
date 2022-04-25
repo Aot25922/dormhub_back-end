@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const bankAccount = sequelize.define(
     'bankAccount', {
       bankAccId: {
-        type: DataTypes.STRING(3),
+        type: DataTypes.INTEGER(3),
         primaryKey: true,
         field: 'bankAccId'
       },

@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const facility = sequelize.define(
     'facility', {
       facilityId: {
-        type: DataTypes.STRING(5),
+        type: DataTypes.INTEGER(5),
         primaryKey: true,
         field: 'facilityId'
       },

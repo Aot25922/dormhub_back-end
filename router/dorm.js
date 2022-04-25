@@ -110,25 +110,58 @@ router.post('/register', async (req, res) => {
       waterPerUnit: newData.dorm.waterPerUnit,
       addressId: new_addressId
     })
+    roomtype = []
+    dormhasroomtype = []
+    for(i in newData.roomType){
+      roomtypeid = await func.roomTypeIdGenerator()
+       roomtype.push({
+        roomTypeId : parseInt(roomtypeid)+parseInt(i),
+        type : newData.roomType[i].type
+      })
+      dormhasroomtype.push({
+        dormId:new_dormId,
+        roomTypeId:parseInt(roomtypeid)+parseInt(i),
+        price:newData.roomType[i].price,
+        deposit:newData.roomType[i].deposit,
+        area:newData.roomType[i].area
+      })
+    }
+    await roomType.bulkCreate(roomtype)
+    await dormHasRoomType.bulkCreate(dormhasroomtype)
+    roomData = []
+    for(i in newData.room){
+      roomid = await func.roomIdGenerator()
+      roomtypeid = await roomType.findOne({attributes:['roomTypeId'],where:{type: newData.room[i].roomType}})
+      roomData.push({
+        roomId : parseInt(roomid)+parseInt(i),
+        roomNum:newData.room[i].roomNum,
+        status:'Idle',
+        floors:newData.room[i].floors,
+        description:newData.room[i].description,
+        dormId : new_dormId,
+        roomTypeId : roomtypeid.roomTypeId
+      })
+    }
+    await room.bulkCreate(roomData)
     res.status(200)
   } catch (err) {
     res.status(500)
     console.log(err)
   }
-  for(i in newData.roomType){
-    roomtypeid = await func.roomTypeIdGenerator()
-    await roomType.create({
-      roomTypeId : roomtypeid,
-      type : newData.roomType[i].type
-    })
-  }
 })
 
 router.delete('/:dormId', async (req, res) => {
   id = req.params.dormId
+  await room.destroy({
+    where:{dormId: id}
+  })
+  await dormHasRoomType.destroy({
+    where : {dormId: id}
+  })
   info = await dorm.destroy({
     where: { dormId: id }
   })
+  
   if (!info) {
     res.sendStatus(500);
   } else {

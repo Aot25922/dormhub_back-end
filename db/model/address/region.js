@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const region = sequelize.define(
     'region', {
       regionId: {
-        type: DataTypes.CHAR(1),
+        type: DataTypes.INTEGER(1),
         primaryKey: true,
         field: 'regionId'
       },

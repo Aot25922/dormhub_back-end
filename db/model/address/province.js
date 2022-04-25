@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const province = sequelize.define(
     'province', {
       provinceId: {
-        type: DataTypes.STRING(2),
+        type: DataTypes.INTEGER(2),
         primaryKey: true,
         field: 'provinceId'
       },

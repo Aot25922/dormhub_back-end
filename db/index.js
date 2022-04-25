@@ -108,16 +108,16 @@ db.dorm.belongsToMany(db.userAccount, {
   otherKey: 'ownId'
 })
 
-db.address.belongsTo(db.dorm,{
+db.dorm.belongsTo(db.address,{
   foreignKey: 'addressId'
 }
 )
-db.dorm.hasOne(db.address, {
+db.address.hasOne(db.dorm, {
   foreignKey: {
     name: 'addressId',
-    field: 'addressId',
-  },
-  allowNull: false
+    field:'addressId',
+    allowNull: false
+  }
 })
 
 db.dorm.hasMany(db.bankAccount, {

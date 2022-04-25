@@ -2,7 +2,7 @@ module.exports = (sequelize,DataTypes) => {
   const dorm = sequelize.define(
     'dorm', {
       dormId: {
-        type: DataTypes.STRING(5),
+        type: DataTypes.INTEGER(5),
         primaryKey: true,
         field: 'dormId'
       },
@@ -45,11 +45,6 @@ module.exports = (sequelize,DataTypes) => {
         type: DataTypes.DECIMAL(3, 2),
         allowNull: false,
         field: 'waterPerUnit'
-      },
-      addressId: {
-        type : DataTypes.STRING(5),
-        allowNull: false,
-        field:'addressId'
       }
     }, {
       tableName: 'dorm'

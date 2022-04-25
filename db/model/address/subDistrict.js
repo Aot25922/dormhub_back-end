@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const subDistrict = sequelize.define(
     'subDistrict', {
       subDistrictId: {
-        type: DataTypes.STRING(4),
+        type: DataTypes.INTEGER(4),
         primaryKey: true,
         field: 'subDistrictId'
       },

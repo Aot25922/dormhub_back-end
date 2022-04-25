@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const roomType = sequelize.define(
     'roomType', {
       roomTypeId: {
-        type: DataTypes.STRING(2),
+        type: DataTypes.INTEGER(5),
         primaryKey: true,
         field: 'roomTypeId'
       },

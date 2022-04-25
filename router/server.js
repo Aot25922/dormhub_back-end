@@ -10,6 +10,7 @@ app.use(cors())
 app.use('/dorm',dorms)
 
 app.get('/', async (req, res) => {
+  res.send('คนที่เปิดหน้านี้เสร่อชิบหาย')
 })
 app.listen(port, async () => {
   debug(` listening on port : ${chalk.red(port)}`)

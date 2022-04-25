@@ -2,7 +2,7 @@ module.exports = (sequelize,DataTypes) => {
   const address = sequelize.define(
     'address', {
       addressId: {
-        type: DataTypes.STRING(6),
+        type: DataTypes.INTEGER(6),
         primaryKey: true,
         field: 'addressId'
       },

@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const media = sequelize.define(
     'media', {
       mediaId: {
-        type: DataTypes.STRING(5),
+        type: DataTypes.INTEGER(5),
         primaryKey: true,
         field: 'mediaId'
       },
