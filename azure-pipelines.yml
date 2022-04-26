@@ -17,15 +17,19 @@ steps:
   displayName: 'Install Node.js'
 
 - script: |
+    npm install
     npm run test
-  displayName: 'npm test'
+  displayName: 'npm install and test'
 - task: PublishTestResults@2
   inputs:
     testResultsFormat: 'JUnit'
     testResultsFiles: '**junit*.xml'
 - task: CopyFiles@2
   inputs:
-    TargetFolder: $(Build.ArtifactStagingDirectory)
+    Contents: |
+      **
+      !$(System.DefaultWorkingDirectory)/node_modules/**
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
 - task: PublishBuildArtifacts@1
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
