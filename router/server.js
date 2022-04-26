@@ -10,7 +10,7 @@ app.use(cors())
 app.use('/dorm',dorms)
 
 app.get('/', async (req, res) => {
-  res.send('Hello World')
+  res.send('Hello World!')
 })
 app.listen(port, async () => {
   debug(` listening on port : ${chalk.red(port)}`)
