@@ -26,9 +26,6 @@ steps:
     testResultsFiles: '**junit*.xml'
 - task: CopyFiles@2
   inputs:
-    Contents: |
-      **
-      !$(System.DefaultWorkingDirectory)/.git/**
     TargetFolder: '$(Build.ArtifactStagingDirectory)'
 - task: PublishBuildArtifacts@1
   inputs:
