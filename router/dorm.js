@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
         }, roomType , room ]
     })
     if (!result) {
-      res.status(500).send('Error')
+      res.status(200).json(result)
     } else {
       res.status(200).json(result)
     }
