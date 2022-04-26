@@ -18,9 +18,5 @@ steps:
 
 - script: |
     npm install
-    npm run test
+    npm run test --if-present
   displayName: 'npm install and test'
-- task: PublishTestResults@2
-  inputs:
-    testResultsFormat: 'JUnit'
-    testResultsFiles: '**/TEST-*.xml'
