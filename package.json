@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
-    "start": "set DEBUG=* & nodemon router/server.js"
+    "test": "jest --ci --reporters=default --reporters=jest-junit",
+    "start": "set DEBUG=* & nodemon router/server.js",
+    "deploy": "npm install && set DEBUG=* & nodemon router/server.js"
   },
   "author": "",
   "license": "ISC",
@@ -25,6 +26,7 @@
     "delay": "2000"
   },
   "devDependencies": {
-    "jest": "^27.5.1"
+    "jest": "^27.5.1",
+    "jest-junit": "^13.2.0"
   }
 }
