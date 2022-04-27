@@ -4,13 +4,13 @@ const chalk = require('chalk')
 const debug = require('debug')('app')
 const app = express()
 const cors = require('cors')
-const port = process.env.PORT || 8080
+const port = process.env.PORT || 3001
 const dorms = require('./dorm')
 app.use(cors())
 app.use('/dorm',dorms)
 
 app.get('/', async (req, res) => {
-  res.send('Hello World!!')
+  res.send('Hello World!')
 })
 app.listen(port, async () => {
   debug(` listening on port : ${chalk.red(port)}`)
