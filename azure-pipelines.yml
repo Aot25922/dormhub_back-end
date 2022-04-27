@@ -29,7 +29,9 @@ steps:
     Contents: |
       **
       !$(System.DefaultWorkingDirectory)/.git/**
-    TargetFolder: '''$(Build.ArtifactStagingDirectory)'''
+      !$(System.DefaultWorkingDirectory)/node_modules/**
+      !$(System.DefaultWorkingDirectory)/**junit*.xml
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
 - task: PublishBuildArtifacts@1
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)'

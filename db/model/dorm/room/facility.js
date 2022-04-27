@@ -4,6 +4,7 @@ module.exports = (sequelize, DataTypes) => {
       facilityId: {
         type: DataTypes.INTEGER(5),
         primaryKey: true,
+        autoIncrement: true,
         field: 'facilityId'
       },
       name: {

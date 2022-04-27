@@ -1,6 +1,7 @@
 const {
   Sequelize,
-  DataTypes
+  DataTypes,
+  QueryTypes
 } = require('sequelize');
 
 // ใช้เชื่อมต่อ DB
@@ -24,6 +25,7 @@ const db = {};
 db.sequelize = sequelize;
 db.DataTypes = DataTypes;
 db.Sequelize = Sequelize;
+db.QueryTypes = QueryTypes;
 
 // ใช้ Summon Model ที่เราสร้างเเละใส่(sequelize {เพื่อระบุ DB ที่ใช้อ้างอิง} ,DataTypes {ใช้ระบุประเภทข้อมูลใน Model})
 db.subDistrict = require('./model/address/subDistrict')(sequelize, Sequelize)
@@ -99,13 +101,13 @@ db.userAccount.belongsTo(db.address, {
 
 db.userAccount.belongsToMany(db.dorm, {
   through: 'dormHasOwner',
-  foreignKey: 'ownId',
-  otherKey: 'dormId'
+  foreignKey: 'dormId',
+  // otherKey: 'ownId'
 })
 db.dorm.belongsToMany(db.userAccount, {
   through: 'dormHasOwner',
-  foreignKey: 'dormId',
-  otherKey: 'ownId'
+  foreignKey: 'ownerId',
+  // otherKey: 'dormId'
 })
 
 db.dorm.belongsTo(db.address,{
@@ -207,12 +209,12 @@ db.room.belongsTo(db.roomType,{
 db.roomType.belongsToMany(db.facility,{
   through: 'roomFacility',
   foreignKey:'roomTypeId',
-  otherKey:'facilityId'
+  otherKey:'facilityId',
 })
 db.facility.belongsToMany(db.roomType,{
   through: 'roomFacility',
   foreignKey:'facilityId',
-  otherKey:'roomTypeId'
+  otherKey:'roomTypeId',
 })
 
 db.bankAccount.hasMany(db.booking,{
