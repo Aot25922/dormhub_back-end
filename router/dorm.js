@@ -16,7 +16,6 @@ router.use((req, res, next) => {
 router.get('/', async (req, res) => {
   try {
     result = await dorm.findAll({
-      attributes: ['dormId', 'name', 'openTime', 'closeTime', 'rating'],
       include: [
         {
           model: address,
@@ -52,7 +51,6 @@ router.get('/:dormId', async (req, res) => {
     if (req.params != null)
       result = await dorm.findOne({
         where: { dormId: req.params.dormId },
-        attributes: ['dormId', 'name', 'openTime', 'closeTime', 'rating'],
         include: [{
           model: address,
           attributes: ['number', 'street', 'alley'],
