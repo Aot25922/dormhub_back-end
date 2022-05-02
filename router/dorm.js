@@ -1,4 +1,6 @@
 var express = require('express');
+var fs = require('fs');
+var path = require('path');
 const { sequelize, QueryTypes } = require('../db/index');
 var router = express.Router()
 const db = require('../db/index')
@@ -6,11 +8,51 @@ const func = require('../function/function')
 const { subDistrict, address, province, region, booking, userAccount, bank, bankAccount, facility, room, roomType, dorm, media, district, dormHasRoomType } = db;
 router.use(express.json())
 router.use(express.urlencoded({ extended: true }))
+var dir = path.resolve('static')
+var mime = {
+  jpg: 'image/jpeg',
+  png: 'image/png',
+};
 db.sequelize.sync();
 
 router.use((req, res, next) => {
   console.log('Time: ', Date.now())
   next()
+})
+
+router.get('/image/:dormId', (req, res) => {
+  var files = path.join(dir, 'image','dorm');
+  filenames = fs.readdirSync(files);
+  filenames.forEach(file => {
+    if (path.parse(file).name == req.params.dormId) {
+      var type = mime[path.extname(file).slice(1)] || 'image/png';
+      var s = fs.createReadStream(path.join(files, file));
+      s.on('open', function () {
+        res.set('Content-Type', type);
+        s.pipe(res);
+      });
+      s.on('error', function () {
+        res.set('Content-Type', 'image/png');
+        res.status(404).end('Not found');
+      });
+    }
+    else {
+      res.status(403).end('Forbidden');
+    }
+  });
+  //   if (file.indexOf(dir + path.sep) !== 0) {
+  //       return res.status(403).end('Forbidden');
+  //   }
+  //   var type = mime[path.extname(file).slice(1)] || 'image/png';
+  //   var s = fs.createReadStream(file);
+  //   s.on('open', function () {
+  //     res.set('Content-Type', type);
+  //     s.pipe(res);
+  // });
+  // s.on('error', function () {
+  //     res.set('Content-Type', 'image/png');
+  //     res.status(404).end('Not found');
+  // });
 })
 
 router.get('/', async (req, res) => {
@@ -89,14 +131,12 @@ router.post('/register', async (req, res) => {
   new_addressId = await func.addressIdGenerator()
   try {
     await address.create({
-      addressId: new_addressId,
       number: newData.address.number,
       street: newData.address.street,
       alley: newData.address.alley,
       subDistrictId: newData.address.subDistrictId
     })
     await dorm.create({
-      dormId: new_dormId,
       name: newData.dorm.name,
       openTime: newData.dorm.openTime,
       closeTime: newData.dorm.closeTime,
@@ -131,7 +171,7 @@ router.post('/register', async (req, res) => {
       roomid = await func.roomIdGenerator()
       roomtypeid = await roomType.findOne({ attributes: ['roomTypeId'], where: { type: newData.room[i].roomType } })
       roomData.push({
-        roomId: parseInt(roomid) + parseInt(i),
+        // roomId: parseInt(roomid) + parseInt(i),
         roomNum: newData.room[i].roomNum,
         status: 'Idle',
         floors: newData.room[i].floors,
