@@ -23,36 +23,23 @@ router.use((req, res, next) => {
 router.get('/image/:dormId', (req, res) => {
   var files = path.join(dir, 'image','dorm');
   filenames = fs.readdirSync(files);
+  let image = null;
   filenames.forEach(file => {
-    if (path.parse(file).name == req.params.dormId) {
-      var type = mime[path.extname(file).slice(1)] || 'image/png';
-      var s = fs.createReadStream(path.join(files, file));
+    if(path.parse(file).name == req.params.dormId)image = file
+  })
+  if(image == null){
+    res.status(404).end('Not found');
+  }
+  var type = mime[path.extname(image).slice(1)] || 'image/png';
+      var s = fs.createReadStream(path.join(files, image));
       s.on('open', function () {
         res.set('Content-Type', type);
-        s.pipe(res);
+        return s.pipe(res);
       });
       s.on('error', function () {
-        res.set('Content-Type', 'image/png');
+        res.set('Content-Type', type);
         res.status(404).end('Not found');
       });
-    }
-    else {
-      res.status(403).end('Forbidden');
-    }
-  });
-  //   if (file.indexOf(dir + path.sep) !== 0) {
-  //       return res.status(403).end('Forbidden');
-  //   }
-  //   var type = mime[path.extname(file).slice(1)] || 'image/png';
-  //   var s = fs.createReadStream(file);
-  //   s.on('open', function () {
-  //     res.set('Content-Type', type);
-  //     s.pipe(res);
-  // });
-  // s.on('error', function () {
-  //     res.set('Content-Type', 'image/png');
-  //     res.status(404).end('Not found');
-  // });
 })
 
 router.get('/', async (req, res) => {
