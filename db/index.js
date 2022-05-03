@@ -1,7 +1,8 @@
 const {
   Sequelize,
   DataTypes,
-  QueryTypes
+  QueryTypes,
+  Op
 } = require('sequelize');
 
 // ใช้เชื่อมต่อ DB
@@ -25,6 +26,7 @@ const db = {};
 db.sequelize = sequelize;
 db.DataTypes = DataTypes;
 db.Sequelize = Sequelize;
+db.Op = Op;
 db.QueryTypes = QueryTypes;
 
 // ใช้ Summon Model ที่เราสร้างเเละใส่(sequelize {เพื่อระบุ DB ที่ใช้อ้างอิง} ,DataTypes {ใช้ระบุประเภทข้อมูลใน Model})

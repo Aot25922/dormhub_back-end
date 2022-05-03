@@ -1,11 +1,10 @@
 var express = require('express');
 var fs = require('fs');
 var path = require('path');
-const { sequelize, QueryTypes } = require('../db/index');
 var router = express.Router()
 const db = require('../db/index')
 const func = require('../function/function')
-const { subDistrict, address, province, region, booking, userAccount, bank, bankAccount, facility, room, roomType, dorm, media, district, dormHasRoomType } = db;
+const { subDistrict, address, province, region, booking, userAccount, bank, bankAccount, facility, room, roomType, dorm, media, district, dormHasRoomType ,Op ,sequelize, QueryTypes} = db;
 router.use(express.json())
 router.use(express.urlencoded({ extended: true }))
 var dir = path.resolve('static')
@@ -20,18 +19,16 @@ router.use((req, res, next) => {
   next()
 })
 
-router.get('/image/:dormId', (req, res) => {
-  var files = path.join(dir, 'image','dorm');
-  filenames = fs.readdirSync(files);
-  let image = null;
-  filenames.forEach(file => {
-    if(path.parse(file).name == req.params.dormId)image = file
-  })
-  if(image == null){
-    res.status(404).end('Not found');
+router.get('/image/:dorm/:media', async (req, res) => {
+  let medias;
+  try{
+    medias = await media.findOne({where:{[Op.and]: [{ mediaId: req.params.media }, { dormId: req.params.dorm },{roomTypeId : {[Op.is]:null}}]}})
+  }catch(err){
+    res.status(403).end('Not Found')
   }
-  var type = mime[path.extname(image).slice(1)] || 'image/png';
-      var s = fs.createReadStream(path.join(files, image));
+  if(medias != null){
+    var type = mime[path.extname(medias.path).slice(1)] || 'image/png';
+      var s = fs.createReadStream(path.join(__dirname,'../', medias.path));
       s.on('open', function () {
         res.set('Content-Type', type);
         return s.pipe(res);
@@ -40,6 +37,32 @@ router.get('/image/:dormId', (req, res) => {
         res.set('Content-Type', type);
         res.status(404).end('Not found');
       });
+  }else{
+    res.status(404).end('Not found');
+  }
+})
+
+router.get('/image/:dorm/:media/:roomTypeId',async (req,res) => {
+  let medias;
+  try{
+    medias = await media.findOne({where:{[Op.and]: [{ mediaId: req.params.media }, { dormId: req.params.dorm },{roomTypeId : req.params.roomTypeId}]}})
+  }catch(err){
+    res.status(403).end('Not Found')
+  }
+  if(medias != null){
+    var type = mime[path.extname(medias.path).slice(1)] || 'image/png';
+      var s = fs.createReadStream(path.join(__dirname,'../', medias.path));
+      s.on('open', function () {
+        res.set('Content-Type', type);
+        return s.pipe(res);
+      });
+      s.on('error', function () {
+        res.set('Content-Type', type);
+        res.status(404).end('Not found');
+      });
+  }else{
+    res.status(404).end('Not found');
+  }
 })
 
 router.get('/', async (req, res) => {
@@ -64,7 +87,7 @@ router.get('/', async (req, res) => {
               }
             }
           }
-        }, { model: roomType, include: { model: facility } }, room, userAccount]
+        }, { model: roomType, include: { model: facility } }, room, userAccount,media]
     })
     if (!result) {
       res.status(500).send('Error')
@@ -99,7 +122,7 @@ router.get('/:dormId', async (req, res) => {
               }
             }
           }
-        }, { model: roomType, include: { model: facility } }, room, userAccount
+        }, { model: roomType, include: { model: facility } }, room, userAccount,media
         ]
       })
     if (!result) {
