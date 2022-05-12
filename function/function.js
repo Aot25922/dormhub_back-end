@@ -10,8 +10,7 @@ async function addressIdGenerator() {
         ],
         limit: 1
     })
-    data = parseInt(data[0].addressId) + 1
-    console.log(data)
+    data = parseInt(data[0].addressId)
     return data
 }
 
@@ -23,7 +22,7 @@ async function dormIdGenerator() {
         ],
         limit: 1
     })
-    data = parseInt(data[0].dormId) + 1
+    data = parseInt(data[0].dormId)
     return data
 }
 
@@ -35,7 +34,7 @@ async function roomIdGenerator() {
         ],
         limit: 1
     })
-    data = parseInt(data[0].roomId) + 1
+    data = parseInt(data[0].roomId)
     return data
 }
 

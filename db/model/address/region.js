@@ -4,6 +4,7 @@ module.exports = (sequelize, DataTypes) => {
       regionId: {
         type: DataTypes.INTEGER(1),
         primaryKey: true,
+        autoIncrement: true,
         field: 'regionId'
       },
       name: {
