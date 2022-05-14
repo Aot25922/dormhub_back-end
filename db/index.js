@@ -10,7 +10,7 @@ const sequelize = new Sequelize(
   'int365_dormhub',
   'int365',
   '9Q7@e4>+#p;+LHpYd_GU2Y$.a?\\uhCg*', {
-    host: 'bom2321.thddns.net',
+    host: process.env.Database_URL || 'mysql.dormhub.works',
     dialect: 'mysql',
     define: {
       timestamps: false
