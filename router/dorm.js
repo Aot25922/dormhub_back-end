@@ -158,7 +158,7 @@ router.get('/:dormId', async (req, res, next) => {
 })
 
 //Add new dorm
-router.post('/register', upload.any(), async (req, res, next) => {
+router.post('/register', upload, async (req, res, next) => {
   newData = JSON.parse(req.body.data);
   let newroomType = []
   let roomData = []
@@ -168,19 +168,18 @@ router.post('/register', upload.any(), async (req, res, next) => {
   try {
     let result = await sequelize.transaction(async (t) => {
       //Check for existed dorm
-      await dorm.findOne({ where: { name: newData.dorm.name } }).then(existDorm => {
-        if (existDorm != null) {
-          error = new Error('Dorm name was existed')
-          error.status = 403
-          throw error
-        }
-      })
-      //Check for existed address
-      await address.findOne({ where: { [Op.and]: [{ number: newData.address.number }, { street: newData.address.street }, { alley: newData.address.alley }] } }).then(existAddress => {
-        if (existAddress != null) {
-          error = new Error('Address was existed')
-          error.status = 403
-          throw error
+      await dorm.findAll({include:[address]}).then(findDorm =>{
+        for(let i in findDorm){
+          if(findDorm[i].name == newData.dorm.name){
+             error = new Error('Dorm name is existed')
+             error.status = 403
+             throw error
+          }
+          if(findDorm[i].address.number == newData.address.number && findDorm[i].address.street == newData.address.street && findDorm[i].address.alley == newData.address.allay){
+            error = new Error('address is existed')
+             error.status = 403
+             throw error
+          }
         }
       })
       //Create new address
@@ -312,6 +311,9 @@ router.post('/register', upload.any(), async (req, res, next) => {
     })
     res.status(200).json(result)
   } catch (err) {
+    files.forEach(async (file) => {
+      fs.unlinkSync(file.path)
+    })
     next(err)
   }
 })

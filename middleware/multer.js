@@ -55,7 +55,7 @@ const upload = multer({
     // limits: {
     //     fileSize: 1024 * 1024
     // }
-})
+}).any()
 
 exports.multerError = multer.MulterError
 exports.upload = upload 
