@@ -24,7 +24,6 @@ const storage = multer.diskStorage({
         }
     },
     filename: function (req, file, cb) {
-        data = JSON.parse(req.body.data)
         if (file.fieldname.includes("dorm_")) {
             if (file.fieldname.includes("roomType")) {
                 fileName = file.fieldname + '-' + Date.now() + path.extname(file.originalname)

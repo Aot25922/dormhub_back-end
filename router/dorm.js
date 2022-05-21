@@ -1,4 +1,5 @@
 var express = require('express');
+const req = require('express/lib/request');
 var fs = require('fs');
 var path = require('path');
 var router = express.Router()
@@ -112,6 +113,17 @@ router.get('/', async (req, res, next) => {
     next(err)
   }
 })
+
+//get all address
+router.get('/address',async (req,res,next) => {
+  try{
+  let getAddress = await region.findAll({include:{model:province,include:{model:district,include:{model:subDistrict}}}})
+  res.status(200).json(getAddress)
+  }catch(err){
+    next(err)
+  }
+})
+
 //get dorm by dormId
 router.get('/:dormId', async (req, res, next) => {
   try {
@@ -141,7 +153,7 @@ router.get('/:dormId', async (req, res, next) => {
         ]
       })
     } else {
-      error = new Error('requst param value type not correct')
+      error = new Error('request param value type not correct')
       error.status = 403
       throw error
     }
@@ -157,6 +169,7 @@ router.get('/:dormId', async (req, res, next) => {
   }
 })
 
+
 //Add new dorm
 router.post('/register', upload, async (req, res, next) => {
   newData = JSON.parse(req.body.data);
@@ -165,29 +178,44 @@ router.post('/register', upload, async (req, res, next) => {
   let new_dormId
   let medias = []
   let files = req.files
+  console.log(newData)
   try {
     let result = await sequelize.transaction(async (t) => {
       //Check for existed dorm
-      await dorm.findAll({include:[address]}).then(findDorm =>{
-        for(let i in findDorm){
-          if(findDorm[i].name == newData.dorm.name){
-             error = new Error('Dorm name is existed')
-             error.status = 403
-             throw error
+      await dorm.findAll({ include: [address] }).then(findDorm => {
+        for (let i in findDorm) {
+          if (findDorm[i].name == newData.dorm.name) {
+            error = new Error('Dorm name is existed')
+            error.status = 403
+            throw error
           }
-          if(findDorm[i].address.number == newData.address.number && findDorm[i].address.street == newData.address.street && findDorm[i].address.alley == newData.address.allay){
+          if (findDorm[i].address.number == newData.address.number && findDorm[i].address.street == newData.address.street && findDorm[i].address.alley == newData.address.allay) {
             error = new Error('address is existed')
-             error.status = 403
-             throw error
+            error.status = 403
+            throw error
           }
         }
       })
       //Create new address
+      let findsubDistrictId = await subDistrict.findOne({
+        attributes: ['subDistrictId'], where: {[Op.and]:{ zipCodeId: newData.address.zipCodeId , name:newData.address.subDistrict} }, include: {
+          model: district, where: { name: newData.address.district }
+          ,
+          include: {model:province,where:{name:newData.address.province},include:{
+            model:region,where:{name:newData.address.region}
+          }}
+        }
+      })
+      if (findsubDistrictId == null || findsubDistrictId == undefined) {
+        error = new Error('address is not found')
+        error.status = 403
+        throw error
+      }
       await address.create({
         number: newData.address.number,
         street: newData.address.street,
         alley: newData.address.alley,
-        subDistrictId: newData.address.subDistrictId
+        subDistrictId : findsubDistrictId.subDistrictId
       }, { transaction: t }).then(async new_address => {
         if (new_address == null || new_address == undefined) {
           error = new Error('Insert address fail')
@@ -197,8 +225,8 @@ router.post('/register', upload, async (req, res, next) => {
           //Create new dorm
           await dorm.create({
             name: newData.dorm.name,
-            openTime: newData.dorm.openTime,
-            closeTime: newData.dorm.closeTime,
+            openTime: null,
+            closeTime: null,
             description: newData.dorm.description,
             rating: newData.dorm.rating,
             acceptPercent: newData.dorm.acceptPercent,
@@ -278,7 +306,7 @@ router.post('/register', upload, async (req, res, next) => {
         }
       });
       if (medias.length == 0) {
-        error = new Error("Mo media for insert")
+        error = new Error("No media for insert")
         error.status = 500
         throw error
       } else {
@@ -311,6 +339,7 @@ router.post('/register', upload, async (req, res, next) => {
     })
     res.status(200).json(result)
   } catch (err) {
+    console.log(err)
     files.forEach(async (file) => {
       fs.unlinkSync(file.path)
     })
@@ -325,112 +354,54 @@ router.delete('/:dormId', async (req, res, next) => {
     await sequelize.transaction(async (t) => {
       //Check for dorm
       deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [address, { model: roomType, include: { model: facility } }, room, media] })
-        if (deleteDorm == null || deleteDorm == undefined) {
-          throw new Error('Dorm Not Found')
-        }
-        if (deleteDorm.roomTypes.length == 0 || deleteDorm.roomTypes.length == undefined) {
-          throw new Error('roomtype Not Found')
-        }
-        if (deleteDorm.rooms.length == 0 || deleteDorm.rooms.length == undefined) {
-          throw new Error('rooms Not Found')
-        } else {
-          await room.destroy({ where: { dormId: id } , transaction: t})
-        }
-        if (deleteDorm.media.length == 0 || deleteDorm.media.length == undefined) {
-          throw new Error('media Not Found')
-        } else {
-          for (let i in deleteDorm.media) {
-            try {
-              fs.unlinkSync(deleteDorm.media[i].path)
-            } catch (err) {
-              continue;
-            }
+      if (deleteDorm == null || deleteDorm == undefined) {
+        throw new Error('Dorm Not Found')
+      }
+      if (deleteDorm.roomTypes.length == 0 || deleteDorm.roomTypes.length == undefined) {
+        throw new Error('roomtype Not Found')
+      }
+      if (deleteDorm.rooms.length == 0 || deleteDorm.rooms.length == undefined) {
+        throw new Error('rooms Not Found')
+      } else {
+        await room.destroy({ where: { dormId: id }, transaction: t })
+      }
+      if (deleteDorm.media.length == 0 || deleteDorm.media.length == undefined) {
+        throw new Error('media Not Found')
+      } else {
+        for (let i in deleteDorm.media) {
+          try {
+            fs.unlinkSync(deleteDorm.media[i].path)
+          } catch (err) {
+            continue;
           }
-          await media.destroy({ where: { dormId: id } , transaction: t})
         }
-        for (let i in deleteDorm.roomTypes) {
-          if (deleteDorm.roomTypes[i].dormHasRoomType == null || deleteDorm.roomTypes[i].dormHasRoomType == undefined) {
-            throw new Error('dormHasRoomType Not Found')
-          } else {
+        await media.destroy({ where: { dormId: id }, transaction: t })
+      }
+      for (let i in deleteDorm.roomTypes) {
+        if (deleteDorm.roomTypes[i].dormHasRoomType == null || deleteDorm.roomTypes[i].dormHasRoomType == undefined) {
+          throw new Error('dormHasRoomType Not Found')
+        } else {
 
-          }
-          if (deleteDorm.roomTypes[i].facilities.length == 0 || deleteDorm.roomTypes[i].facilities.length == undefined) {
+        }
+        if (deleteDorm.roomTypes[i].facilities.length == 0 || deleteDorm.roomTypes[i].facilities.length == undefined) {
+          throw new Error('facilities Not Found')
+        }
+        for (let j in deleteDorm.roomTypes[i].facilities) {
+          if (deleteDorm.roomTypes[i].facilities[j] == null || deleteDorm.roomTypes[i].facilities[j] == undefined) {
             throw new Error('facilities Not Found')
           }
-          for (let j in deleteDorm.roomTypes[i].facilities) {
-            if (deleteDorm.roomTypes[i].facilities[j] == null || deleteDorm.roomTypes[i].facilities[j] == undefined) {
-              throw new Error('facilities Not Found')
-            }
-            if (deleteDorm.roomTypes[i].facilities[j].roomFacility == null || deleteDorm.roomTypes[i].facilities[j].roomFacility == undefined) {
-              throw new Error('roomFacility Not Found')
-            }
-            await deleteDorm.roomTypes[i].removeFacilities(deleteDorm.roomTypes[i].facilities[j], { transaction: t })
-            await deleteDorm.roomTypes[i].facilities[j].destroy({transaction: t})
+          if (deleteDorm.roomTypes[i].facilities[j].roomFacility == null || deleteDorm.roomTypes[i].facilities[j].roomFacility == undefined) {
+            throw new Error('roomFacility Not Found')
           }
-          await deleteDorm.removeRoomTypes(deleteDorm.roomTypes[i], { transaction: t })
-          await deleteDorm.roomTypes[i].destroy({transaction: t})
+          await deleteDorm.roomTypes[i].removeFacilities(deleteDorm.roomTypes[i].facilities[j], { transaction: t })
+          await deleteDorm.roomTypes[i].facilities[j].destroy({ transaction: t })
         }
-        await deleteDorm.destroy({ transaction: t })
-        await address.destroy({where:{addressId : deleteDorm.addressId},transaction: t})
+        await deleteDorm.removeRoomTypes(deleteDorm.roomTypes[i], { transaction: t })
+        await deleteDorm.roomTypes[i].destroy({ transaction: t })
+      }
+      await deleteDorm.destroy({ transaction: t })
+      await address.destroy({ where: { addressId: deleteDorm.addressId }, transaction: t })
     })
-    //   await dorm.findOne({ where: { dormId: id } }).then(async deleteDorm => {
-    //     if (deleteDorm == null || deleteDorm == undefined) {
-    //       throw new Error('Dorm Not Found')
-    //     }
-    //   })
-    //   dormhasroomtype = await dormHasRoomType.findAll({ where: { dormId: id } })
-    //   if (dormhasroomtype.length == 0) {
-    //     throw new Error('dormHasRoomType Not Found')
-    //   }
-    //   let roomtypes = [];
-    //   let medias;
-    //   let rooms = [];
-    //   for (let i in  dormhasroomtype) {
-    //     //Find roomType
-    //     await roomType.findOne({ where: { roomtypeId:  dormhasroomtype[i].roomTypeId } , include:{model:facility} }).then(async findroomType => {
-    //       if (findroomType == null || findroomType == undefined) { throw new Error('roomtype Not Found') }
-    //         //Find media
-    //         roomtypes.push(findroomType)
-    //     })
-    //   }
-    //   //find media
-    //   medias = await media.findAll({ where: { dormId: id } })
-    //   if (medias.length == 0) { throw new Error('media not found') }
-    //   //Find room
-    //   await room.findAll({ where: { dormId: id } }).then(findRoom => {
-    //     if (findRoom.length == 0) { throw new Error('Room Not Found') }
-    //     for (let i in findRoom) {
-    //       rooms.push(findRoom[i])
-    //     }
-    //   })
-    //   //delete dormhasroomtype
-    //   for (let i in dormhasroomtype) {
-    //     await dormhasroomtype[i].destroy({ transaction: t })
-    //   }
-    //   for (let i in rooms) {
-    //     await rooms[i].destroy({ transaction: t })
-    //   }
-    //   for (let i in medias) {
-    //     fs.unlinkSync(medias[i].path)
-    //     await medias[i].destroy({ transaction: t })
-    //   }
-    //   for (let i in roomtypes) {
-    //     for(let j in roomtypes[i].facilities){
-    //       await roomtypes[i].removeFacilities(roomtypes[i].facilities[j],{ transaction: t })
-    //     }
-    //     await roomtypes[i].destroy({ transaction: t })
-    //   }
-    //   await dorm.findOne({ where: { dormId: id } }).then(async deleteDorm => {
-    //     if (deleteDorm == null || deleteDorm == undefined) {
-    //       throw new Error('Dorm Not Found')
-    //     }
-    //     await address.findOne({ where: { addressId: deleteDorm.addressId } }).then(async deleteAddress => {
-    //       if (deleteAddress == null || deleteAddress == undefined) { throw new Error('Address Not Found') }
-    //       await deleteDorm.destroy({ transaction: t })
-    //       await deleteAddress.destroy({ transaction: t })
-    //     })
-    //   })
-    // })
     res.sendStatus(200)
   } catch (err) {
     console.log(err)
