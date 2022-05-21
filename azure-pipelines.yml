@@ -16,6 +16,10 @@ steps:
     versionSpec: '16.x'
   displayName: 'Install Node.js'
 
+- task: DownloadSecureFile@1
+  inputs:
+    secureFile: '.env'
+
 - script: |
     npm install
     npm run test
