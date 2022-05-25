@@ -178,7 +178,6 @@ router.post('/register', upload, async (req, res, next) => {
   let new_dormId
   let medias = []
   let files = req.files
-  console.log(newData)
   try {
     let result = await sequelize.transaction(async (t) => {
       //Check for existed dorm
