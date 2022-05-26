@@ -13,12 +13,12 @@ module.exports = (sequelize,DataTypes) => {
         field: 'name'
       },
       openTime: {
-        type: DataTypes.DATE,
+        type: DataTypes.STRING(10),
         allowNull: true,
         field: 'openTime'
       },
       closeTime: {
-        type: DataTypes.DATE,
+        type: DataTypes.STRING(10),
         allowNull: true,
         field: 'closeTime'
       },
