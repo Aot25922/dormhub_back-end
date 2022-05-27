@@ -18,12 +18,12 @@ router.use((req, res, next) => {
 })
 
 //get dorm image
-router.get('/image/:dorm/:media', async (req, res, next) => {
+router.get('/image/:dormId/:mediaId', async (req, res, next) => {
   try {
     var data = await media.findOne({
       where: {
-        [Op.and]: [{ mediaId: req.params.media },
-        { dormId: req.params.dorm }, { roomTypeId: { [Op.is]: null } }]
+        [Op.and]: [{ mediaId: req.params.mediaId },
+        { dormId: req.params.dormId }, { roomTypeId: { [Op.is]: null } }]
       }
     })
     if (data != null) {
@@ -47,12 +47,12 @@ router.get('/image/:dorm/:media', async (req, res, next) => {
 })
 
 //get roomtype image
-router.get('/image/:dorm/:media/:roomTypeId', async (req, res, next) => {
+router.get('/image/:dormId/:mediaId/:roomTypeId', async (req, res, next) => {
   let data;
   try {
     data = await media.findOne({
       where: {
-        [Op.and]: [{ mediaId: req.params.media }, { dormId: req.params.dorm },
+        [Op.and]: [{ mediaId: req.params.mediaId }, { dormId: req.params.dormId },
         { roomTypeId: req.params.roomTypeId }]
       }
     })
