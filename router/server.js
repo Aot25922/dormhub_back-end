@@ -12,7 +12,7 @@ app.use(cors())
 app.use('/dorm',dorms)
 
 app.get('/', async (req, res) => {
-  res.send('Hello Man!')
+  res.send('Hello Boy!')
 })
 
 app.use((req,res,next)=>{
