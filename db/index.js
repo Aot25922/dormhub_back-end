@@ -12,6 +12,7 @@ const sequelize = new Sequelize(
   'int365',
   '9Q7@e4>+#p;+LHpYd_GU2Y$.a?\\uhCg*', {
     host: process.env.Database_URL || 'mysql.dormhub.works',
+    port: process.env.Database_Port || '3306',
     dialect: 'mysql',
     define: {
       timestamps: false
