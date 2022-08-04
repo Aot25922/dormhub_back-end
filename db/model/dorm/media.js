@@ -4,6 +4,7 @@ module.exports = (sequelize, DataTypes) => {
       mediaId: {
         type: DataTypes.INTEGER(5),
         primaryKey: true,
+        autoIncrement: true,
         field: 'mediaId'
       },
       path: {
