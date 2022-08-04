@@ -15,7 +15,7 @@ variables:
   imageRepository: 'dormhubbackend'
   containerRegistry: 'dormhubimage.azurecr.io'
   dockerfilePath: '**/Dockerfile'
-  tag: '$(Build.BuildId)'
+  tag: '$(Build.SourceBranchName)'
 
   # Agent VM image name
   vmImageName: 'ubuntu-latest'
