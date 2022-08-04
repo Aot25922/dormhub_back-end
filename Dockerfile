@@ -1,5 +1,5 @@
 FROM node:slim
-WORKDIR /home
+WORKDIR /app
 COPY . .
 RUN npm install
 EXPOSE 3001
