@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 var fs = require('fs');
+const console = require('console');
 const ext = ['.jpg', '.png', '.jpeg', '.gif'];
 const directory = 'static/image/'
 const storage = multer.diskStorage({
@@ -41,11 +42,13 @@ const upload = multer({
     storage: storage,
     fileFilter: function (req, file, cb) {
         try{
+            // console.log(req.body)
             let data = JSON.parse(req.body.data)
         }
         catch(err){
             var error = new Error('Input Error to convert')
             error.status = 403
+            console.log(err)
             return cb(error)
         }
         var fileExt = path.extname(file.originalname);

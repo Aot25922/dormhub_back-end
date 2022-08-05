@@ -172,13 +172,13 @@ router.get('/:dormId', async (req, res, next) => {
 
 //Add new dorm
 router.post('/register', upload, async (req, res, next) => {
+  let files = req.files
   try {
     newData = JSON.parse(req.body.data);
   let newroomType = []
   let roomData = []
   let new_dormId
   let medias = []
-  let files = req.files
     let result = await sequelize.transaction(async (t) => {
       //Check for existed dorm
       await dorm.findAll({ include: [address] }).then(findDorm => {
@@ -335,6 +335,8 @@ router.post('/register', upload, async (req, res, next) => {
       }
       //Create new room
       await room.bulkCreate(roomData, { transaction: t })
+
+      //Create payment method
     })
     res.status(200).json(result)
   } catch (err) {
