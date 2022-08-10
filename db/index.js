@@ -41,7 +41,6 @@ db.booking = require('./model/dorm/account/booking')(sequelize, Sequelize)
 db.userAccount = require('./model/dorm/account/userAccount')(sequelize, Sequelize)
 db.bank = require('./model/dorm/banking/bank')(sequelize, Sequelize)
 db.bankAccount = require('./model/dorm/banking/bankAccount')(sequelize,Sequelize)
-db.facility = require('./model/dorm/room/facility')(sequelize, Sequelize)
 db.room = require('./model/dorm/room/room')(sequelize, Sequelize)
 db.roomType = require('./model/dorm/room/roomType')(sequelize, Sequelize)
 db.dorm = require('./model/dorm/dorm')(sequelize, Sequelize)
@@ -208,17 +207,6 @@ db.roomType.hasMany(db.room,{
 })
 db.room.belongsTo(db.roomType,{
   foreignKey:'roomTypeId'
-})
-
-db.roomType.belongsToMany(db.facility,{
-  through: 'roomFacility',
-  foreignKey:'roomTypeId',
-  otherKey:'facilityId',
-})
-db.facility.belongsToMany(db.roomType,{
-  through: 'roomFacility',
-  foreignKey:'facilityId',
-  otherKey:'roomTypeId',
 })
 
 db.bankAccount.hasMany(db.booking,{

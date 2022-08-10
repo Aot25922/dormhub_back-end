@@ -11,6 +11,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(50),
         allowNull: false,
         field: 'type'
+      },
+      description:{
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        field: 'type'
       }
     }, {
       tableName: 'roomType'

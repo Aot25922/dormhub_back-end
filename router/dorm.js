@@ -1,12 +1,14 @@
 var express = require('express');
 const req = require('express/lib/request');
-var fs = require('fs');
-var path = require('path');
+const fs = require('fs');
+const _ = require('lodash');
+const path = require('path');
 var router = express.Router()
 const db = require('../db/index')
 const multer = require('../middleware/multer')
+const func = require('../function/function')
 const upload = multer.upload
-const { subDistrict, address, province, region, userAccount, facility, room, roomType, dorm, media, district, dormHasRoomType, Op, sequelize, QueryTypes } = db;
+const { subDistrict, address, province, region, userAccount, room, roomType, dorm, media, district, dormHasRoomType, Op, sequelize, QueryTypes, bankAccount } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -100,7 +102,7 @@ router.get('/', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, include: { model: facility } }, room, userAccount, media]
+        }, roomType, room, userAccount, media, bankAccount]
     })
     if (!result || result.length == 0) {
       error = new Error("Cannot get all dorm")
@@ -115,11 +117,11 @@ router.get('/', async (req, res, next) => {
 })
 
 //get all address
-router.get('/address',async (req,res,next) => {
-  try{
-  let getAddress = await region.findAll({include:{model:province,include:{model:district,include:{model:subDistrict}}}})
-  res.status(200).json(getAddress)
-  }catch(err){
+router.get('/address', async (req, res, next) => {
+  try {
+    let getAddress = await region.findAll({ include: { model: province, include: { model: district, include: { model: subDistrict } } } })
+    res.status(200).json(getAddress)
+  } catch (err) {
     next(err)
   }
 })
@@ -149,7 +151,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, include: { model: facility } }, room, userAccount, media
+        }, roomType, room, userAccount, media, bankAccount
         ]
       })
     } else {
@@ -175,10 +177,10 @@ router.post('/register', upload, async (req, res, next) => {
   let files = req.files
   try {
     newData = JSON.parse(req.body.data);
-  let newroomType = []
-  let roomData = []
-  let new_dormId
-  let medias = []
+    let newroomType = []
+    let roomData = []
+    let new_dormId
+    let medias = []
     let result = await sequelize.transaction(async (t) => {
       //Check for existed dorm
       await dorm.findAll({ include: [address] }).then(findDorm => {
@@ -197,12 +199,14 @@ router.post('/register', upload, async (req, res, next) => {
       })
       //Create new address
       let findsubDistrictId = await subDistrict.findOne({
-        attributes: ['subDistrictId'], where: {[Op.and]:{ zipCodeId: newData.address.zipCodeId , name:newData.address.subDistrict} }, include: {
+        attributes: ['subDistrictId'], where: { [Op.and]: { zipCodeId: newData.address.zipCodeId, name: newData.address.subDistrict } }, include: {
           model: district, where: { name: newData.address.district }
           ,
-          include: {model:province,where:{name:newData.address.province},include:{
-            model:region,where:{name:newData.address.region}
-          }}
+          include: {
+            model: province, where: { name: newData.address.province }, include: {
+              model: region, where: { name: newData.address.region }
+            }
+          }
         }
       })
       if (findsubDistrictId == null || findsubDistrictId == undefined) {
@@ -214,7 +218,7 @@ router.post('/register', upload, async (req, res, next) => {
         number: newData.address.number,
         street: newData.address.street,
         alley: newData.address.alley,
-        subDistrictId : findsubDistrictId.subDistrictId
+        subDistrictId: findsubDistrictId.subDistrictId
       }, { transaction: t }).then(async new_address => {
         if (new_address == null || new_address == undefined) {
           error = new Error('Insert address fail')
@@ -262,7 +266,7 @@ router.post('/register', upload, async (req, res, next) => {
       }
       for (let i in newData.roomType) {
         //Create new roomType
-        await roomType.create({ type: newData.roomType[i].type, facilities: newData.roomType[i].facility }, { include: [facility] }, { transaction: t }).then(async roomtype => {
+        await roomType.create({ type: newData.roomType[i].type, description: newData.roomType[i].description }, { transaction: t }).then(async roomtype => {
           if (roomtype == null || roomtype == undefined) {
             error = new Error('insert roomType is null')
             error.status = 403
@@ -316,14 +320,14 @@ router.post('/register', upload, async (req, res, next) => {
       for (let i in newData.room) {
         if (newData.room[i].roomType == null || newData.room[i].roomType == undefined) {
           error = new Error("Input roomtype of room error")
-          error.status = 500
+          error.status = 403
           throw error
         } else {
           for (let j in newroomType) {
             if (newroomType[j].type == newData.room[i].roomType) {
               roomData.push({
                 roomNum: newData.room[i].roomNum,
-                status: 'Idle',
+                status: newData.room[i].status,
                 floors: newData.room[i].floors,
                 description: newData.room[i].description,
                 dormId: new_dormId,
@@ -337,6 +341,44 @@ router.post('/register', upload, async (req, res, next) => {
       await room.bulkCreate(roomData, { transaction: t })
 
       //Create payment method
+      let bankAccountList = []
+      for (let i in newData.bankAccount) {
+        if (func.checkForEmptyString(newData.bankAccount[i].accountNum) || func.checkForEmptyString(newData.bankAccount[i].accountName || _.isNull(newData.bankAccount[i].bankId) || _.isNumber(newData.bankAccount[i].bankId))) {
+          error = new Error("Input bankAccount error")
+          error.status = 403
+          throw error
+        } else {
+          files.forEach(async (file) => {
+            if (file.fieldname.includes("dorm_")) {
+              if (file.fieldname.includes("bankAccount")) {
+                if (_.isEqual(_.lowerCase(newData.bankAccount[i].accountName), _.lowerCase(file.fieldname.substr(17)))) {
+                  bankAccountList.push({
+                    accountNum: newData.bankAccount[i].accountNum,
+                    accountName: newData.bankAccount[i].accountName,
+                    qrcode: file.path,
+                    dormId: new_dormId,
+                    bankId: newData.bankAccount[i].bankId
+                  })
+                }
+              }
+            }
+          });
+          if (_.isUndefined(_.find(bankAccountList, {
+            accountNum: newData.bankAccount[i].accountNum,
+            accountName: newData.bankAccount[i].accountName, bankId: newData.bankAccount[i].bankId
+          }))) {
+            bankAccountList.push({
+              accountNum: newData.bankAccount[i].accountNum,
+              accountName: newData.bankAccount[i].accountName,
+              qrcode: "",
+              dormId: new_dormId,
+              bankId: newData.bankAccount[i].bankId
+            })
+          }
+        }
+      }
+      await bankAccount.bulkCreate(bankAccountList, { transaction: t })
+
     })
     res.status(200).json(result)
   } catch (err) {
@@ -354,9 +396,14 @@ router.delete('/:dormId', async (req, res, next) => {
   try {
     await sequelize.transaction(async (t) => {
       //Check for dorm
-      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [address, { model: roomType, include: { model: facility } }, room, media] })
+      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [address,bankAccount, roomType, room, media] })
       if (deleteDorm == null || deleteDorm == undefined) {
         throw new Error('Dorm Not Found')
+      }
+      if(deleteDorm.bankAccounts.length == 0 || deleteDorm.bankAccounts.length == undefined){
+        throw new Error('bankAccount Not Found')
+      } else{
+        await bankAccount.destroy({where: { dormId: id }, transaction: t })
       }
       if (deleteDorm.roomTypes.length == 0 || deleteDorm.roomTypes.length == undefined) {
         throw new Error('roomtype Not Found')
@@ -390,9 +437,6 @@ router.delete('/:dormId', async (req, res, next) => {
         for (let j in deleteDorm.roomTypes[i].facilities) {
           if (deleteDorm.roomTypes[i].facilities[j] == null || deleteDorm.roomTypes[i].facilities[j] == undefined) {
             throw new Error('facilities Not Found')
-          }
-          if (deleteDorm.roomTypes[i].facilities[j].roomFacility == null || deleteDorm.roomTypes[i].facilities[j].roomFacility == undefined) {
-            throw new Error('roomFacility Not Found')
           }
           await deleteDorm.roomTypes[i].removeFacilities(deleteDorm.roomTypes[i].facilities[j], { transaction: t })
           await deleteDorm.roomTypes[i].facilities[j].destroy({ transaction: t })
