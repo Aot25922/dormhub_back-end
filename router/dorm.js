@@ -1,10 +1,10 @@
 var express = require('express');
-const req = require('express/lib/request');
 const fs = require('fs');
 const _ = require('lodash');
 const path = require('path');
 var router = express.Router()
 const db = require('../db/index')
+const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
 const func = require('../function/function')
 const upload = multer.upload
@@ -173,7 +173,7 @@ router.get('/:dormId', async (req, res, next) => {
 
 
 //Add new dorm
-router.post('/register', upload, async (req, res, next) => {
+router.post('/register', [upload,jwt.authenticateToken], async (req, res, next) => {
   let files = req.files
   try {
     newData = JSON.parse(req.body.data);
@@ -182,6 +182,15 @@ router.post('/register', upload, async (req, res, next) => {
     let new_dormId
     let medias = []
     let result = await sequelize.transaction(async (t) => {
+      //Check for userAccount
+      await userAccount.findOne({ where: { userId: req.user.userId } }).then(findUserAccount => {
+        console.log(req.user.userId)
+        if(findUserAccount.role != "Owner"){
+            error = new Error('This account cannot access')
+            error.status = 403
+            throw error
+        }
+      })
       //Check for existed dorm
       await dorm.findAll({ include: [address] }).then(findDorm => {
         for (let i in findDorm) {
@@ -235,7 +244,8 @@ router.post('/register', upload, async (req, res, next) => {
             acceptPercent: newData.dorm.acceptPercent,
             elecPerUnit: newData.dorm.elecPerUnit,
             waterPerUnit: newData.dorm.waterPerUnit,
-            addressId: new_address.addressId
+            addressId: new_address.addressId,
+            ownerId: req.user.userId
           }, { transaction: t }).then(new_dorm => {
             if (new_dorm == null || new_dorm == undefined) {
               error = new Error('Insert dorm fail')
@@ -378,7 +388,6 @@ router.post('/register', upload, async (req, res, next) => {
         }
       }
       await bankAccount.bulkCreate(bankAccountList, { transaction: t })
-
     })
     res.status(200).json(result)
   } catch (err) {
@@ -396,14 +405,14 @@ router.delete('/:dormId', async (req, res, next) => {
   try {
     await sequelize.transaction(async (t) => {
       //Check for dorm
-      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [address,bankAccount, roomType, room, media] })
+      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [address, bankAccount, roomType, room, media] })
       if (deleteDorm == null || deleteDorm == undefined) {
         throw new Error('Dorm Not Found')
       }
-      if(deleteDorm.bankAccounts.length == 0 || deleteDorm.bankAccounts.length == undefined){
+      if (deleteDorm.bankAccounts.length == 0 || deleteDorm.bankAccounts.length == undefined) {
         throw new Error('bankAccount Not Found')
-      } else{
-        await bankAccount.destroy({where: { dormId: id }, transaction: t })
+      } else {
+        await bankAccount.destroy({ where: { dormId: id }, transaction: t })
       }
       if (deleteDorm.roomTypes.length == 0 || deleteDorm.roomTypes.length == undefined) {
         throw new Error('roomtype Not Found')

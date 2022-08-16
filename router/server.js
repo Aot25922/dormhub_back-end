@@ -6,9 +6,10 @@ const app = express()
 const cors = require('cors')
 const port = process.env.PORT || 3001
 const dorms = require('./dorm')
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+const account = require('./account')
+const jwt = require('../middleware/jwt')
 app.use(cors())
+app.use('/account',account)
 app.use('/dorm',dorms)
 
 app.get('/', async (req, res) => {

@@ -92,25 +92,15 @@ db.province.belongsTo(db.region, {
   foreignKey: 'regionId'
 })
 
-db.address.hasOne(db.userAccount, {
+db.userAccount.hasMany(db.dorm, {
   foreignKey: {
-    name: 'addressId',
-    field: 'addressId'
-  }
+    name: 'ownerId',
+    field: 'ownerId'
+  },
+  allowNull: false
 })
-db.userAccount.belongsTo(db.address, {
-  foreignKey: 'addressId'
-})
-
-db.userAccount.belongsToMany(db.dorm, {
-  through: 'dormHasOwner',
-  foreignKey: 'dormId',
-  // otherKey: 'ownId'
-})
-db.dorm.belongsToMany(db.userAccount, {
-  through: 'dormHasOwner',
+db.dorm.belongsTo(db.userAccount, {
   foreignKey: 'ownerId',
-  // otherKey: 'dormId'
 })
 
 db.dorm.belongsTo(db.address,{
