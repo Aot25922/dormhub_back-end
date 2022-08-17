@@ -4,11 +4,15 @@ const chalk = require('chalk')
 const debug = require('debug')('app')
 const app = express()
 const cors = require('cors')
+const cookieParser = require('cookie-parser');
 const port = process.env.PORT || 3001
 const dorms = require('./dorm')
 const account = require('./account')
 const jwt = require('../middleware/jwt')
-app.use(cors())
+app.use(cookieParser());
+app.use(cors({
+  origin: true,
+  credentials: true,}))
 app.use('/account',account)
 app.use('/dorm',dorms)
 

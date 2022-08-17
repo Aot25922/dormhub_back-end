@@ -71,7 +71,10 @@ router.post('/register', async (req, res, next) => {
                 },
                 include: [{ model: dorm, attributes: ['dormId'] }]
             }).then(resAccount => {
-                res.status(200).json(resAccount)
+                let token = jwt.generateAccessToken(resAccount.userId)
+                console.log(token)
+                res.cookie("token", token, {httpOnly: true, maxAge: 2 * 60 * 60 * 1000 })
+                res.status(200).json({status:"register complete"})
             })
         })
     } catch (err) {
