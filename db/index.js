@@ -32,11 +32,11 @@ db.Op = Op;
 db.QueryTypes = QueryTypes;
 
 // ใช้ Summon Model ที่เราสร้างเเละใส่(sequelize {เพื่อระบุ DB ที่ใช้อ้างอิง} ,DataTypes {ใช้ระบุประเภทข้อมูลใน Model})
-db.subDistrict = require('./model/address/subDistrict')(sequelize, Sequelize)
-db.district = require('./model/address/district')(sequelize, Sequelize)
+db.subDistricts = require('./model/address/subDistricts')(sequelize, Sequelize)
+db.districts = require('./model/address/districts')(sequelize, Sequelize)
 db.address = require('./model/address/address')(sequelize, Sequelize)
-db.province = require('./model/address/province')(sequelize, Sequelize)
-db.region = require('./model/address/region')(sequelize, Sequelize)
+db.provinces = require('./model/address/provinces')(sequelize, Sequelize)
+db.geographies = require('./model/address/geographies')(sequelize, Sequelize)
 db.booking = require('./model/dorm/account/booking')(sequelize, Sequelize)
 db.userAccount = require('./model/dorm/account/userAccount')(sequelize, Sequelize)
 db.bank = require('./model/dorm/banking/bank')(sequelize, Sequelize)
@@ -48,48 +48,52 @@ db.media = require('./model/dorm/media')(sequelize, Sequelize)
 db.dormHasRoomType = require('./model/dorm/room/dormHasRoomType')(sequelize,Sequelize)
 
 //เชื่อมความสัมพันธ์
-db.subDistrict.hasMany(db.address, {
+db.geographies.hasMany(db.provinces, {
   foreignKey: {
-    name: 'subDistrictId',
+    name: 'id',
+    field: 'geographiesId'
+  },
+  allowNull: false
+})
+
+db.provinces.belongsTo(db.geographies, {
+  foreignKey: 'geographiesId'
+})
+
+db.provinces.hasMany(db.districts, {
+  foreignKey: {
+    name: 'provincesId',
+    field: 'provincesId'
+  },
+  allowNull: false
+})
+
+db.districts.belongsTo(db.provinces, {
+  foreignKey: 'provincesId'
+})
+
+db.districts.hasMany(db.subDistricts, {
+  foreignKey: {
+    name: 'districtsId',
+    field: 'districts_Id'
+  },
+  allowNull: false
+})
+
+db.subDistricts.belongsTo(db.districts, {
+  foreignKey: 'districtsId'
+})
+
+db.subDistricts.hasMany(db.address, {
+  foreignKey: {
+    name: 'subDistrictsId',
     field: 'subDistrictId'
   },
   allowNull: false
 })
-db.address.belongsTo(db.subDistrict, {
+
+db.address.belongsTo(db.subDistricts, {
   foreignKey: 'subDistrictId'
-})
-
-db.district.hasMany(db.subDistrict, {
-  foreignKey: {
-    name: 'districtId',
-    field: 'districtId'
-  },
-  allowNull: false
-})
-db.subDistrict.belongsTo(db.district, {
-  foreignKey: 'districtId'
-})
-
-db.province.hasMany(db.district, {
-  foreignKey: {
-    name: 'provinceId',
-    field: 'provinceId'
-  },
-  allowNull: false
-})
-db.district.belongsTo(db.province, {
-  foreignKey: 'provinceId'
-})
-
-db.region.hasMany(db.province, {
-  foreignKey: {
-    name: 'regionId',
-    field: 'regionId'
-  },
-  allowNull: false
-})
-db.province.belongsTo(db.region, {
-  foreignKey: 'regionId'
 })
 
 db.userAccount.hasMany(db.dorm, {

@@ -1,11 +1,11 @@
 module.exports = (sequelize, DataTypes) => {
-  const region = sequelize.define(
-    'region', {
-      regionId: {
+  const geographies = sequelize.define(
+    'geographies', {
+      geographiesId: {
         type: DataTypes.INTEGER(1),
         primaryKey: true,
         autoIncrement: true,
-        field: 'regionId'
+        field: 'id'
       },
       name: {
         type: DataTypes.STRING(50),
@@ -13,9 +13,9 @@ module.exports = (sequelize, DataTypes) => {
         field: 'name'
       }
     }, {
-      tableName: 'region'
+      tableName: 'geographies'
     }
   );
 
-  return region;
+  return geographies;
 }
