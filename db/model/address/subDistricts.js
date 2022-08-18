@@ -21,6 +21,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(150),
         allowNull: false,
         field: 'name_en'
+      },
+      districtId: {
+        type: DataTypes.INTEGER(6),
+        allowNull: false,
+        field: 'districts_id'
       }
     }, {
       tableName: 'subDistricts'

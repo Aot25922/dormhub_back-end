@@ -26,6 +26,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(1000),
         allowNull: true,
         field: 'img'
+      },
+      geographyId: {
+        type: DataTypes.INTEGER(6),
+        allowNull: false,
+        field: 'geography_id'
       }
     }, {
       tableName: 'provinces'

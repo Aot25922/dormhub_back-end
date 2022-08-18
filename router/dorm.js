@@ -8,7 +8,7 @@ const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
 const func = require('../function/function')
 const upload = multer.upload
-const { subDistrict, address, province, region, userAccount, room, roomType, dorm, media, district, dormHasRoomType, Op, sequelize, QueryTypes, bankAccount } = db;
+const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -87,16 +87,16 @@ router.get('/', async (req, res, next) => {
         {
           model: address,
           include: {
-            model: subDistrict,
-            attributes: ['name', 'zipCodeId'],
+            model: subDistricts,
+            attributes: ['name_th', 'zip_code'],
             include: {
-              model: district,
-              attributes: ['name'],
+              model: districts,
+              attributes: ['name_th'],
               include: {
-                model: province,
-                attributes: ['name', 'img'],
+                model: provinces,
+                attributes: ['name_th', 'img'],
                 include: {
-                  model: region,
+                  model: geographies,
                   attributes: ['name']
                 }
               }
@@ -116,16 +116,6 @@ router.get('/', async (req, res, next) => {
   }
 })
 
-//get all address
-router.get('/address', async (req, res, next) => {
-  try {
-    let getAddress = await region.findAll({ include: { model: province, include: { model: district, include: { model: subDistrict } } } })
-    res.status(200).json(getAddress)
-  } catch (err) {
-    next(err)
-  }
-})
-
 //get dorm by dormId
 router.get('/:dormId', async (req, res, next) => {
   try {
@@ -137,15 +127,15 @@ router.get('/:dormId', async (req, res, next) => {
           attributes: ['number', 'street', 'alley'],
           include: {
             model: subDistrict,
-            attributes: ['name', 'zipCodeId'],
+            attributes: ['name_th', 'zip_code'],
             include: {
-              model: district,
-              attributes: ['name'],
+              model: districts,
+              attributes: ['name_th'],
               include: {
-                model: province,
-                attributes: ['name', 'img'],
+                model: provinces,
+                attributes: ['name_th', 'img'],
                 include: {
-                  model: region,
+                  model: geographies,
                   attributes: ['name']
                 }
               }
@@ -173,10 +163,11 @@ router.get('/:dormId', async (req, res, next) => {
 
 
 //Add new dorm
-router.post('/register', [upload,jwt.authenticateToken], async (req, res, next) => {
+router.post('/register', [upload, jwt.authenticateToken], async (req, res, next) => {
   let files = req.files
   try {
     newData = JSON.parse(req.body.data);
+    console.log(req.user)
     let newroomType = []
     let roomData = []
     let new_dormId
@@ -184,11 +175,10 @@ router.post('/register', [upload,jwt.authenticateToken], async (req, res, next) 
     let result = await sequelize.transaction(async (t) => {
       //Check for userAccount
       await userAccount.findOne({ where: { userId: req.user.userId } }).then(findUserAccount => {
-        console.log(req.user.userId)
-        if(findUserAccount.role != "Owner"){
-            error = new Error('This account cannot access')
-            error.status = 403
-            throw error
+        if (findUserAccount.role != "Owner") {
+          error = new Error('This account cannot access')
+          error.status = 403
+          throw error
         }
       })
       //Check for existed dorm
@@ -207,13 +197,13 @@ router.post('/register', [upload,jwt.authenticateToken], async (req, res, next) 
         }
       })
       //Create new address
-      let findsubDistrictId = await subDistrict.findOne({
-        attributes: ['subDistrictId'], where: { [Op.and]: { zipCodeId: newData.address.zipCodeId, name: newData.address.subDistrict } }, include: {
-          model: district, where: { name: newData.address.district }
+      let findsubDistrictId = await subDistricts.findOne({
+        attributes: ['id'], where: { [Op.and]: { zip_code: newData.address.zipCodeId, name_th: newData.address.subDistrict } }, include: {
+          model: districts, where: { name_th: newData.address.district }
           ,
           include: {
-            model: province, where: { name: newData.address.province }, include: {
-              model: region, where: { name: newData.address.region }
+            model: provinces, where: { name_th: newData.address.province }, include: {
+              model: geographies, where: { name: newData.address.region }
             }
           }
         }
@@ -227,7 +217,7 @@ router.post('/register', [upload,jwt.authenticateToken], async (req, res, next) 
         number: newData.address.number,
         street: newData.address.street,
         alley: newData.address.alley,
-        subDistrictId: findsubDistrictId.subDistrictId
+        subDistrict_id: findsubDistrictId.subDistrictId
       }, { transaction: t }).then(async new_address => {
         if (new_address == null || new_address == undefined) {
           error = new Error('Insert address fail')

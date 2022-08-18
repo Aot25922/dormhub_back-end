@@ -32,17 +32,9 @@ router.get('/', async (req, res, next) => {
     }
 })
 
-router.post('/register', async (req, res, next) => {
-    const form = formidable({ multiples: true });
-    let newData ;
-    await form.parse(req, (err, fields, files) => {
-        if (err) {
-            next(err);
-            return;
-        }
-        newData = JSON.parse(fields.data)
-    });
+router.post('/register', upload, async (req, res, next) => {
     try {
+        let newData = JSON.parse(req.body.data);
         //Check for exist account
         await userAccount.findOne({
             where: { email: newData.email }
@@ -84,9 +76,9 @@ router.post('/register', async (req, res, next) => {
 
 router.post('/login', upload, async (req, res, next) => {
     try {
-        console.log(req.body)
         let newData = JSON.parse(req.body.data);
         var data = await userAccount.findOne({
+            attributes: {exclude: ['password','email']},
             where: {
                 [Op.and]: [{ email: newData.email },
                 { password: newData.password }]
@@ -94,13 +86,24 @@ router.post('/login', upload, async (req, res, next) => {
             include: [{ model: dorm, attributes: ['dormId'] }]
         })
         if (!data || data.length == 0) {
-            error = new Error("Cannot get all account")
+            error = new Error("Invalid userAccount")
             error.status = 500
             throw error
         } else {
             let token = jwt.generateAccessToken(data.userId)
-            res.status(200).json({token:token})
+                res.cookie("token", token, {httpOnly: true, maxAge: 2 * 60 * 60 * 1000 })
+                res.status(200).json({data:data})
         }
+    } catch (err) {
+        next(err)
+    }
+})
+
+router.delete('/logout', async (req, res, next) => {
+    try {
+        console.log(req.cookies)
+        res.clearCookie('token')
+        res.status(200).json({status:"logout complete"})
     } catch (err) {
         next(err)
     }

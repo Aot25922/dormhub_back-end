@@ -22,6 +22,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: 'name_en'
       },
+      provinceId: {
+        type: DataTypes.INTEGER(6),
+        allowNull: false,
+        field: 'province_id'
+      }
     }, {
       tableName: 'districts'
     }

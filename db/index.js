@@ -50,43 +50,43 @@ db.dormHasRoomType = require('./model/dorm/room/dormHasRoomType')(sequelize,Sequ
 //เชื่อมความสัมพันธ์
 db.geographies.hasMany(db.provinces, {
   foreignKey: {
-    name: 'id',
+    name: 'geographyId',
     field: 'geographiesId'
   },
   allowNull: false
 })
 
 db.provinces.belongsTo(db.geographies, {
-  foreignKey: 'geographiesId'
+  foreignKey: 'geographyId'
 })
 
 db.provinces.hasMany(db.districts, {
   foreignKey: {
-    name: 'provincesId',
-    field: 'provincesId'
+    name: 'provinceId',
+    field: 'provinceId'
   },
   allowNull: false
 })
 
 db.districts.belongsTo(db.provinces, {
-  foreignKey: 'provincesId'
+  foreignKey: 'provinceId'
 })
 
 db.districts.hasMany(db.subDistricts, {
   foreignKey: {
-    name: 'districtsId',
-    field: 'districts_Id'
+    name: 'districtId',
+    field: 'districtId'
   },
   allowNull: false
 })
 
 db.subDistricts.belongsTo(db.districts, {
-  foreignKey: 'districtsId'
+  foreignKey: 'districtId'
 })
 
 db.subDistricts.hasMany(db.address, {
   foreignKey: {
-    name: 'subDistrictsId',
+    name: 'subDistrictId',
     field: 'subDistrictId'
   },
   allowNull: false
