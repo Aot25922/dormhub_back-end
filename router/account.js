@@ -65,8 +65,8 @@ router.post('/register', upload, async (req, res, next) => {
             }).then(resAccount => {
                 let token = jwt.generateAccessToken(resAccount.userId)
                 console.log(token)
-                res.cookie("token", token, {httpOnly: true, maxAge: 2 * 60 * 60 * 1000 })
-                res.status(200).json({status:"register complete"})
+                res.cookie("token", token, { httpOnly: true })
+                res.status(200).json({ status: "register complete" })
             })
         })
     } catch (err) {
@@ -74,25 +74,38 @@ router.post('/register', upload, async (req, res, next) => {
     }
 })
 
-router.post('/login', upload, async (req, res, next) => {
+router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) => {
     try {
-        let newData = JSON.parse(req.body.data);
-        var data = await userAccount.findOne({
-            attributes: {exclude: ['password','email']},
-            where: {
-                [Op.and]: [{ email: newData.email },
-                { password: newData.password }]
-            },
-            include: [{ model: dorm, attributes: ['dormId'] }]
-        })
-        if (!data || data.length == 0) {
-            error = new Error("Invalid userAccount")
-            error.status = 500
-            throw error
-        } else {
-            let token = jwt.generateAccessToken(data.userId)
-                res.cookie("token", token, {httpOnly: true, maxAge: 2 * 60 * 60 * 1000 })
-                res.status(200).json({data:data})
+        if (req.user != null) {
+            await userAccount.findOne({ where: { userId: req.user.userId } }).then(findUserAccount => {
+                if (findUserAccount == null) {
+                    error = new Error('This account cannot access')
+                    error.status = 403
+                    throw error
+                }
+                res.status(200).json({ data: findUserAccount })
+            })
+        }
+        else {
+            let newData = JSON.parse(req.body.data)
+            await userAccount.findOne({
+                attributes: { exclude: ['password', 'email'] },
+                where: {
+                    [Op.and]: [{ email: newData.email },
+                    { password: newData.password }]
+                },
+                include: [{ model: dorm, attributes: ['dormId'] }]
+            }).then(findUserAccount => {
+                if (!findUserAccount) {
+                    error = new Error("Invalid userAccount")
+                    error.status = 500
+                    throw error
+                } else {
+                    let token = jwt.generateAccessToken(findUserAccount.userId)
+                    res.cookie("token", token, { httpOnly: true })
+                    res.status(200).json({ data: findUserAccount })
+                }
+            })
         }
     } catch (err) {
         next(err)
@@ -103,7 +116,7 @@ router.delete('/logout', async (req, res, next) => {
     try {
         console.log(req.cookies)
         res.clearCookie('token')
-        res.status(200).json({status:"logout complete"})
+        res.status(200).end()
     } catch (err) {
         next(err)
     }

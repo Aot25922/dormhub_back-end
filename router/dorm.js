@@ -83,26 +83,27 @@ router.get('/image/:dormId/:mediaId/:roomTypeId', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     result = await dorm.findAll({
-      include: [
-        {
-          model: address,
+      include: [{
+        model: address,
+        attributes: ['number', 'street', 'alley'],
+        include: {
+          model: subDistricts,
+          attributes: ['name_th', 'zip_code'],
           include: {
-            model: subDistricts,
-            attributes: ['name_th', 'zip_code'],
+            model: districts,
+            attributes: ['name_th'],
             include: {
-              model: districts,
-              attributes: ['name_th'],
+              model: provinces,
+              attributes: ['name_th', 'img'],
               include: {
-                model: provinces,
-                attributes: ['name_th', 'img'],
-                include: {
-                  model: geographies,
-                  attributes: ['name']
-                }
+                model: geographies,
+                attributes: ['name']
               }
             }
           }
-        }, roomType, room, userAccount, media, bankAccount]
+        }
+      }, { model: roomType, attributes: { exclude: ['roomTypeId'] }, through: { attributes: ['price', 'area', 'deposit'] } }, { model: room, attributes: { exclude: ['roomId', 'dormId', 'roomTypeId'] } }, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, { model: media, attributes: ['path', 'mediaId'] }, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
+      ]
     })
     if (!result || result.length == 0) {
       error = new Error("Cannot get all dorm")
@@ -126,7 +127,7 @@ router.get('/:dormId', async (req, res, next) => {
           model: address,
           attributes: ['number', 'street', 'alley'],
           include: {
-            model: subDistrict,
+            model: subDistricts,
             attributes: ['name_th', 'zip_code'],
             include: {
               model: districts,
@@ -141,7 +142,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, roomType, room, userAccount, media, bankAccount
+        }, { model: roomType, attributes: { exclude: ['roomTypeId'] }, through: { attributes: ['price', 'area', 'deposit'] }, }, { model: room, attributes: { exclude: ['roomId', 'dormId', 'roomTypeId'] } }, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, { model: media, attributes: ['path', 'mediaId'] }, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
         ]
       })
     } else {
