@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const db = require('../db/index')
 const secret = "TEST"
 const generateAccessToken = (userId) => {
     return jwt.sign({ userId }, secret, { expiresIn: 60 * 60 }, { algorithm: 'RS256' });
@@ -7,7 +6,7 @@ const generateAccessToken = (userId) => {
 
 const authenticateToken = async (req, res, next) => {
     const token = req.cookies.token
-    console.log(req.path)
+    console.log(req.cookies)
     if(req.path == "/login" && token == null){
         return next()
     }

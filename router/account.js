@@ -5,6 +5,7 @@ var router = express.Router()
 const jwt = require('../middleware/jwt')
 const db = require('../db/index')
 const multer = require('../middleware/multer')
+const bcrypt = require('../function/bcrypt');
 const upload = multer.upload
 const { userAccount, dorm, Op, sequelize } = db;
 var mime = {
@@ -46,28 +47,21 @@ router.post('/register', upload, async (req, res, next) => {
             }
         })
         //Create new account
+        let encryptPassword = await bcrypt.cryptPassword(newData.password)
         await userAccount.create({
             email: newData.email,
-            password: newData.password,
+            password: encryptPassword,
             fname: newData.fname,
             lname: newData.lname,
             sex: newData.role,
             phone: newData.phone,
             role: newData.role
         }).then(newAccount => {
-            console.log(newAccount.dataValues)
-            userAccount.findOne({
-                where: {
-                    [Op.and]: [{ email: newAccount.dataValues.email },
-                    { password: newAccount.dataValues.password }]
-                },
-                include: [{ model: dorm, attributes: ['dormId'] }]
-            }).then(resAccount => {
-                let token = jwt.generateAccessToken(resAccount.userId)
-                console.log(token)
-                res.cookie("token", token, { httpOnly: true })
-                res.status(200).json({ status: "register complete" })
-            })
+            let token = jwt.generateAccessToken(newAccount.dataValues.userId)
+            res.cookie("token", token, { httpOnly: true })
+            let result = _.omit(newAccount.dataValues, ['email', 'password'])
+            res.status(200).json({ data: result })
+
         })
     } catch (err) {
         next(err)
@@ -76,6 +70,7 @@ router.post('/register', upload, async (req, res, next) => {
 
 router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) => {
     try {
+        console.log("LOGIN")
         if (req.user != null) {
             await userAccount.findOne({ where: { userId: req.user.userId } }).then(findUserAccount => {
                 if (findUserAccount == null) {
@@ -83,27 +78,34 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
                     error.status = 403
                     throw error
                 }
-                res.status(200).json({ data: findUserAccount })
+                let result = _.omit(findUserAccount.dataValues, ['email','password'])
+                res.status(200).json({ data: result })
             })
         }
         else {
             let newData = JSON.parse(req.body.data)
             await userAccount.findOne({
-                attributes: { exclude: ['password', 'email'] },
+                attributes: { exclude: ['email'] },
                 where: {
-                    [Op.and]: [{ email: newData.email },
-                    { password: newData.password }]
+                    email: newData.email
                 },
                 include: [{ model: dorm, attributes: ['dormId'] }]
-            }).then(findUserAccount => {
+            }).then(async findUserAccount => {
                 if (!findUserAccount) {
-                    error = new Error("Invalid userAccount")
-                    error.status = 500
+                    error = new Error("Invalid email")
+                    error.status = 403
                     throw error
                 } else {
+                    const comparePassword = await bcrypt.comparePassword(newData.password, findUserAccount.password)
+                    if (!comparePassword) {
+                        error = new Error("Invalid password")
+                        error.status = 403
+                        throw error
+                    }
                     let token = jwt.generateAccessToken(findUserAccount.userId)
                     res.cookie("token", token, { httpOnly: true })
-                    res.status(200).json({ data: findUserAccount })
+                    let result = _.omit(findUserAccount, ['password'])
+                    res.status(200).json({ data: result })
                 }
             })
         }
