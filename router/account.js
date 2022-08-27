@@ -104,7 +104,8 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
                     }
                     let token = jwt.generateAccessToken(findUserAccount.userId)
                     res.cookie("token", token, { httpOnly: true })
-                    let result = _.omit(findUserAccount, ['password'])
+                    let result = _.omit(findUserAccount.dataValues, ['password'])
+                    console.log(result)
                     res.status(200).json({ data: result })
                 }
             })

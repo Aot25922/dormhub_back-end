@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const secret = "TEST"
 const generateAccessToken = (userId) => {
-    return jwt.sign({ userId }, secret, { expiresIn: 60 * 60 }, { algorithm: 'RS256' });
+    return jwt.sign({ userId }, secret, { algorithm: 'RS256' });
 }
 
 const authenticateToken = async (req, res, next) => {
