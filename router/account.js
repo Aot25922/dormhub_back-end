@@ -71,8 +71,9 @@ router.post('/register', upload, async (req, res, next) => {
 router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) => {
     try {
         console.log("LOGIN")
-        if (req.user != null) {
-            await userAccount.findOne({ where: { userId: req.user.userId } }).then(findUserAccount => {
+        console.log(req.userId)
+        if (req.userId != null) {
+            await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
                 if (findUserAccount == null) {
                     error = new Error('This account cannot access')
                     error.status = 403

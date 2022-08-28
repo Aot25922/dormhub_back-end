@@ -175,7 +175,7 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
     let medias = []
     let result = await sequelize.transaction(async (t) => {
       //Check for userAccount
-      await userAccount.findOne({ where: { userId: req.user.userId } }).then(findUserAccount => {
+      await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
         if (findUserAccount.role != "Owner") {
           error = new Error('This account cannot access')
           error.status = 403
@@ -199,15 +199,7 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
       })
       //Create new address
       let findsubDistrictId = await subDistricts.findOne({
-        attributes: ['id'], where: { [Op.and]: { zip_code: newData.address.zipCodeId, name_th: newData.address.subDistrict } }, include: {
-          model: districts, where: { name_th: newData.address.district }
-          ,
-          include: {
-            model: provinces, where: { name_th: newData.address.province }, include: {
-              model: geographies, where: { name: newData.address.region }
-            }
-          }
-        }
+        attributes: ['subDistrictsId'], where: { [Op.and]: { zip_code: newData.address.zipCodeId, name_th: newData.address.subDistrict } }
       })
       if (findsubDistrictId == null || findsubDistrictId == undefined) {
         error = new Error('address is not found')
@@ -218,7 +210,7 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
         number: newData.address.number,
         street: newData.address.street,
         alley: newData.address.alley,
-        subDistrict_id: findsubDistrictId.subDistrictId
+        subDistrictId: findsubDistrictId.subDistrictsId
       }, { transaction: t }).then(async new_address => {
         if (new_address == null || new_address == undefined) {
           error = new Error('Insert address fail')
@@ -236,7 +228,7 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
             elecPerUnit: newData.dorm.elecPerUnit,
             waterPerUnit: newData.dorm.waterPerUnit,
             addressId: new_address.addressId,
-            ownerId: req.user.userId
+            ownerId: req.userId
           }, { transaction: t }).then(new_dorm => {
             if (new_dorm == null || new_dorm == undefined) {
               error = new Error('Insert dorm fail')
@@ -428,19 +420,7 @@ router.delete('/:dormId', async (req, res, next) => {
       for (let i in deleteDorm.roomTypes) {
         if (deleteDorm.roomTypes[i].dormHasRoomType == null || deleteDorm.roomTypes[i].dormHasRoomType == undefined) {
           throw new Error('dormHasRoomType Not Found')
-        } else {
-
-        }
-        if (deleteDorm.roomTypes[i].facilities.length == 0 || deleteDorm.roomTypes[i].facilities.length == undefined) {
-          throw new Error('facilities Not Found')
-        }
-        for (let j in deleteDorm.roomTypes[i].facilities) {
-          if (deleteDorm.roomTypes[i].facilities[j] == null || deleteDorm.roomTypes[i].facilities[j] == undefined) {
-            throw new Error('facilities Not Found')
-          }
-          await deleteDorm.roomTypes[i].removeFacilities(deleteDorm.roomTypes[i].facilities[j], { transaction: t })
-          await deleteDorm.roomTypes[i].facilities[j].destroy({ transaction: t })
-        }
+        } 
         await deleteDorm.removeRoomTypes(deleteDorm.roomTypes[i], { transaction: t })
         await deleteDorm.roomTypes[i].destroy({ transaction: t })
       }

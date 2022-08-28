@@ -9,6 +9,7 @@ const port = process.env.PORT || 3001
 const dorms = require('./dorm')
 const account = require('./account')
 const address = require('./address')
+const bank = require('./bank')
 const jwt = require('../middleware/jwt')
 app.use(cookieParser());
 app.use(cors({
@@ -17,6 +18,7 @@ app.use(cors({
 app.use('/account',account)
 app.use('/dorm',dorms)
 app.use('/address',address)
+app.use('/bank',bank)
 
 app.get('/', async (req, res) => {
   res.send('Hello Boy!')
