@@ -102,7 +102,7 @@ router.get('/', async (req, res, next) => {
             }
           }
         }
-      }, { model: roomType, attributes: { exclude: ['roomTypeId'] }, through: { attributes: ['price', 'area', 'deposit'] } }, { model: room, attributes: { exclude: ['roomId', 'dormId', 'roomTypeId'] } }, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, { model: media, attributes: ['path', 'mediaId'] }, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, { model: room, attributes: { exclude: ['roomId', 'dormId', 'roomTypeId'] } }, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
       ]
     })
     if (!result || result.length == 0) {
@@ -142,7 +142,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, attributes: { exclude: ['roomTypeId'] }, through: { attributes: ['price', 'area', 'deposit'] }, }, { model: room, attributes: { exclude: ['roomId', 'dormId', 'roomTypeId'] } }, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, { model: media, attributes: ['path', 'mediaId'] }, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
+        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, { model: room, attributes: { exclude: ['roomId', 'dormId', 'roomTypeId'] } }, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
         ]
       })
     } else {
@@ -420,7 +420,7 @@ router.delete('/:dormId', async (req, res, next) => {
       for (let i in deleteDorm.roomTypes) {
         if (deleteDorm.roomTypes[i].dormHasRoomType == null || deleteDorm.roomTypes[i].dormHasRoomType == undefined) {
           throw new Error('dormHasRoomType Not Found')
-        } 
+        }
         await deleteDorm.removeRoomTypes(deleteDorm.roomTypes[i], { transaction: t })
         await deleteDorm.roomTypes[i].destroy({ transaction: t })
       }
