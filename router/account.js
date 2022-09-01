@@ -58,7 +58,7 @@ router.post('/register', upload, async (req, res, next) => {
             role: newData.role
         }).then(newAccount => {
             let token = jwt.generateAccessToken(newAccount.dataValues.userId)
-            res.cookie("token", token, { httpOnly: true,sameSite: 'none', secure: true,origin:'https://dev.dormhub.works/' })
+            res.cookie("token", token, { httpOnly: true,sameSite: 'none', secure: true,domain:'https://dev.dormhub.works/' })
             let result = _.omit(newAccount.dataValues, ['email', 'password'])
             res.status(200).json({ data: result })
 
@@ -102,7 +102,7 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
                         throw error
                     }
                     let token = jwt.generateAccessToken(findUserAccount.userId)
-                    res.cookie("token", token, { httpOnly: true, sameSite: 'none' , secure: true, origin:'https://dev.dormhub.works/'})
+                    res.cookie("token", token, { httpOnly: true, sameSite: 'none' , secure: true, domain:'https://dev.dormhub.works/'})
                     let result = _.omit(findUserAccount.dataValues, ['password'])
                     res.status(200).json({ data: result })
                 }
