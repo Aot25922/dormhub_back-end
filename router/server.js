@@ -20,7 +20,12 @@ app.use('/account',account)
 app.use('/dorm',dorms)
 app.use('/address',address)
 app.use('/bank',bank)
-
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Credentials', true);
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,UPDATE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
+  next();
+});
 app.get('/', async (req, res) => {
   res.send('Hello Boy!')
 })
