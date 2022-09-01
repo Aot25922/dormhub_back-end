@@ -19,6 +19,22 @@ router.use((req, res, next) => {
   next()
 })
 
+//Validate dorm name
+router.post('/validateDorm',upload, async (req, res, next) => {
+  let newData = JSON.parse(req.body.data)
+  try{
+    let data = await dorm.findOne({where : {name : newData.dormName}})
+    if(data != undefined || data != null){
+        res.json(false).status(200)
+    }else{
+      res.json(true).status(200)
+    }
+  }catch(err){
+    console.log(err)
+    next(err)
+  }
+})
+
 //get dorm image
 router.get('/image/:dormId/:mediaId', async (req, res, next) => {
   try {
@@ -168,7 +184,6 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
   let files = req.files
   try {
     newData = JSON.parse(req.body.data);
-    console.log(req.user)
     let newroomType = []
     let roomData = []
     let new_dormId
@@ -432,9 +447,8 @@ router.delete('/:dormId', async (req, res, next) => {
     console.log(err)
     next(err)
   }
-
-
 })
+
 
 router.put('/edit', async (req, res) => {
   editData = req.body.data

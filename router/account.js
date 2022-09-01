@@ -70,8 +70,6 @@ router.post('/register', upload, async (req, res, next) => {
 
 router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) => {
     try {
-        console.log("LOGIN")
-        console.log(req.userId)
         if (req.userId != null) {
             await userAccount.findOne({ where: { userId: req.userId },include: [{ model: dorm, attributes: ['dormId'] }]}).then(findUserAccount => {
                 if (findUserAccount == null) {
@@ -106,7 +104,6 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
                     let token = jwt.generateAccessToken(findUserAccount.userId)
                     res.cookie("token", token, { httpOnly: true })
                     let result = _.omit(findUserAccount.dataValues, ['password'])
-                    console.log(result)
                     res.status(200).json({ data: result })
                 }
             })
@@ -118,7 +115,6 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
 
 router.delete('/logout', async (req, res, next) => {
     try {
-        console.log(req.cookies)
         res.clearCookie('token')
         res.status(200).end()
     } catch (err) {
