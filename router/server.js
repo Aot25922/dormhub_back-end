@@ -14,7 +14,8 @@ const jwt = require('../middleware/jwt')
 app.use(cookieParser());
 app.use(cors({
   origin: true,
-  credentials: true,}))
+  credentials: true,
+  exposedHeaders: ["set-cookie"]}))
 app.use('/account',account)
 app.use('/dorm',dorms)
 app.use('/address',address)
