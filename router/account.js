@@ -102,7 +102,7 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
                         throw error
                     }
                     let token = jwt.generateAccessToken(findUserAccount.userId)
-                    res.cookie("token", token, { domain:'dev.dormhub.works',httpOnly: true, sameSite: 'none' , secure: true})
+                    res.cookie("token", token, { domain:'dev.dormhub.works',httpOnly: true})
                     let result = _.omit(findUserAccount.dataValues, ['password'])
                     res.status(200).json({ data: result })
                 }
