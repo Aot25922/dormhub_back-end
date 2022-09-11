@@ -5,7 +5,7 @@ module.exports = (sequelize,DataTypes) => {
         type: DataTypes.INTEGER(6),
         primaryKey: true,
         autoIncrement: true,
-        field: 'addressId'
+        field: 'id'
       },
       number: {
         type: DataTypes.STRING(20),
@@ -25,7 +25,7 @@ module.exports = (sequelize,DataTypes) => {
       subDistrictId:{
         type : DataTypes.STRING(4),
         allowNull: false,
-        field: 'subDistrictId'
+        field: 'subDistrict_id'
       }
     }, {
       tableName: 'address'

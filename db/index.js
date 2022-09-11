@@ -32,16 +32,15 @@ db.Op = Op;
 db.QueryTypes = QueryTypes;
 
 // ใช้ Summon Model ที่เราสร้างเเละใส่(sequelize {เพื่อระบุ DB ที่ใช้อ้างอิง} ,DataTypes {ใช้ระบุประเภทข้อมูลใน Model})
-db.subDistrict = require('./model/address/subDistrict')(sequelize, Sequelize)
-db.district = require('./model/address/district')(sequelize, Sequelize)
+db.subDistricts = require('./model/address/subDistricts')(sequelize, Sequelize)
+db.districts = require('./model/address/districts')(sequelize, Sequelize)
 db.address = require('./model/address/address')(sequelize, Sequelize)
-db.province = require('./model/address/province')(sequelize, Sequelize)
-db.region = require('./model/address/region')(sequelize, Sequelize)
+db.provinces = require('./model/address/provinces')(sequelize, Sequelize)
+db.geographies = require('./model/address/geographies')(sequelize, Sequelize)
 db.booking = require('./model/dorm/account/booking')(sequelize, Sequelize)
 db.userAccount = require('./model/dorm/account/userAccount')(sequelize, Sequelize)
 db.bank = require('./model/dorm/banking/bank')(sequelize, Sequelize)
 db.bankAccount = require('./model/dorm/banking/bankAccount')(sequelize,Sequelize)
-db.facility = require('./model/dorm/room/facility')(sequelize, Sequelize)
 db.room = require('./model/dorm/room/room')(sequelize, Sequelize)
 db.roomType = require('./model/dorm/room/roomType')(sequelize, Sequelize)
 db.dorm = require('./model/dorm/dorm')(sequelize, Sequelize)
@@ -49,69 +48,63 @@ db.media = require('./model/dorm/media')(sequelize, Sequelize)
 db.dormHasRoomType = require('./model/dorm/room/dormHasRoomType')(sequelize,Sequelize)
 
 //เชื่อมความสัมพันธ์
-db.subDistrict.hasMany(db.address, {
+db.geographies.hasMany(db.provinces, {
   foreignKey: {
-    name: 'subDistrictId',
-    field: 'subDistrictId'
+    name: 'geographyId',
+    field: 'geographiesId'
   },
   allowNull: false
 })
-db.address.belongsTo(db.subDistrict, {
-  foreignKey: 'subDistrictId'
+
+db.provinces.belongsTo(db.geographies, {
+  foreignKey: 'geographyId'
 })
 
-db.district.hasMany(db.subDistrict, {
-  foreignKey: {
-    name: 'districtId',
-    field: 'districtId'
-  },
-  allowNull: false
-})
-db.subDistrict.belongsTo(db.district, {
-  foreignKey: 'districtId'
-})
-
-db.province.hasMany(db.district, {
+db.provinces.hasMany(db.districts, {
   foreignKey: {
     name: 'provinceId',
     field: 'provinceId'
   },
   allowNull: false
 })
-db.district.belongsTo(db.province, {
+
+db.districts.belongsTo(db.provinces, {
   foreignKey: 'provinceId'
 })
 
-db.region.hasMany(db.province, {
+db.districts.hasMany(db.subDistricts, {
   foreignKey: {
-    name: 'regionId',
-    field: 'regionId'
+    name: 'districtId',
+    field: 'districtId'
   },
   allowNull: false
 })
-db.province.belongsTo(db.region, {
-  foreignKey: 'regionId'
+
+db.subDistricts.belongsTo(db.districts, {
+  foreignKey: 'districtId'
 })
 
-db.address.hasOne(db.userAccount, {
+db.subDistricts.hasMany(db.address, {
   foreignKey: {
-    name: 'addressId',
-    field: 'addressId'
-  }
-})
-db.userAccount.belongsTo(db.address, {
-  foreignKey: 'addressId'
+    name: 'subDistrictId',
+    field: 'subDistrictId'
+  },
+  allowNull: false
 })
 
-db.userAccount.belongsToMany(db.dorm, {
-  through: 'dormHasOwner',
-  foreignKey: 'dormId',
-  // otherKey: 'ownId'
+db.address.belongsTo(db.subDistricts, {
+  foreignKey: 'subDistrictId'
 })
-db.dorm.belongsToMany(db.userAccount, {
-  through: 'dormHasOwner',
+
+db.userAccount.hasMany(db.dorm, {
+  foreignKey: {
+    name: 'ownerId',
+    field: 'ownerId'
+  },
+  allowNull: false
+})
+db.dorm.belongsTo(db.userAccount, {
   foreignKey: 'ownerId',
-  // otherKey: 'dormId'
 })
 
 db.dorm.belongsTo(db.address,{
@@ -208,17 +201,6 @@ db.roomType.hasMany(db.room,{
 })
 db.room.belongsTo(db.roomType,{
   foreignKey:'roomTypeId'
-})
-
-db.roomType.belongsToMany(db.facility,{
-  through: 'roomFacility',
-  foreignKey:'roomTypeId',
-  otherKey:'facilityId',
-})
-db.facility.belongsToMany(db.roomType,{
-  through: 'roomFacility',
-  foreignKey:'facilityId',
-  otherKey:'roomTypeId',
 })
 
 db.bankAccount.hasMany(db.booking,{
