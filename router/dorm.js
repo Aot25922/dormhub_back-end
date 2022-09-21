@@ -6,7 +6,7 @@ var router = express.Router()
 const db = require('../db/index')
 const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
-const func = require('../function/function')
+const func = require('../function/function');
 const upload = multer.upload
 const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount } = db;
 var mime = {
@@ -98,7 +98,23 @@ router.get('/image/:dormId/:mediaId/:roomTypeId', async (req, res, next) => {
 //get all dorm
 router.get('/', async (req, res, next) => {
   try {
-    result = await dorm.findAll({
+    const pageasNumber = parseInt(req.query.page)
+    const limitasNumber = parseInt(req.query.limit)
+
+    let page = 0
+    if(!isNaN(pageasNumber) && pageasNumber>0){
+      page = pageasNumber
+    }
+
+    let limit = 20
+
+    if(!isNaN(limitasNumber) && limitasNumber>0){
+      limit = limitasNumber
+    }
+    let result = await dorm.findAndCountAll({
+      limit: limit,
+      offset: page*limit,
+      distinct:true,
       include: [{
         model: address,
         attributes: ['number', 'street', 'alley'],
@@ -126,7 +142,7 @@ router.get('/', async (req, res, next) => {
       error.status = 500
       throw error
     } else {
-      res.status(200).json(result)
+      res.status(200).json({results:result.rows,totalPage: Math.ceil(result.count/limit)})
     }
   } catch (err) {
     next(err)
