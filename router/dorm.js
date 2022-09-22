@@ -20,16 +20,16 @@ router.use((req, res, next) => {
 })
 
 //Validate dorm name
-router.post('/validateDorm',upload, async (req, res, next) => {
+router.post('/validateDorm', upload, async (req, res, next) => {
   let newData = JSON.parse(req.body.data)
-  try{
-    let data = await dorm.findOne({where : {name : newData.dormName}})
-    if(data != undefined || data != null){
-        res.json(false).status(200)
-    }else{
+  try {
+    let data = await dorm.findOne({ where: { name: newData.dormName } })
+    if (data != undefined || data != null) {
+      res.json(false).status(200)
+    } else {
       res.json(true).status(200)
     }
-  }catch(err){
+  } catch (err) {
     console.log(err)
     next(err)
   }
@@ -102,19 +102,19 @@ router.get('/', async (req, res, next) => {
     const limitasNumber = parseInt(req.query.limit)
 
     let page = 0
-    if(!isNaN(pageasNumber) && pageasNumber>0){
+    if (!isNaN(pageasNumber) && pageasNumber > 0) {
       page = pageasNumber
     }
 
-    let limit = 20
+    let limit = 10
 
-    if(!isNaN(limitasNumber) && limitasNumber>0){
+    if (!isNaN(limitasNumber) && limitasNumber > 0) {
       limit = limitasNumber
     }
     let result = await dorm.findAndCountAll({
       limit: limit,
-      offset: page*limit,
-      distinct:true,
+      offset: page * limit,
+      distinct: true,
       include: [{
         model: address,
         attributes: ['number', 'street', 'alley'],
@@ -142,7 +142,68 @@ router.get('/', async (req, res, next) => {
       error.status = 500
       throw error
     } else {
-      res.status(200).json({results:result.rows,totalPage: Math.ceil(result.count/limit)})
+      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
+    }
+  } catch (err) {
+    next(err)
+  }
+})
+
+//get all owner dorm
+router.get('/owner', async (req, res, next) => {
+  try {
+    const pageasNumber = parseInt(req.query.page)
+    const limitasNumber = parseInt(req.query.limit)
+    const dormIdList = req.query.dormIdList
+    console.log(dormIdList)
+
+    let page = 0
+    if (!isNaN(pageasNumber) && pageasNumber > 0) {
+      page = pageasNumber
+    }
+
+    let limit = 20
+
+    if (!isNaN(limitasNumber) && limitasNumber > 0) {
+      limit = limitasNumber
+    }
+    let result = await dorm.findAndCountAll({
+      limit: limit,
+      offset: page * limit,
+      distinct: true,
+      where: {
+        dormId: {
+          [Op.in]: dormIdList,
+        }
+      },
+      include: [{
+        model: address,
+        attributes: ['number', 'street', 'alley'],
+        include: {
+          model: subDistricts,
+          attributes: ['name_th', 'zip_code'],
+          include: {
+            model: districts,
+            attributes: ['name_th'],
+            include: {
+              model: provinces,
+              attributes: ['name_th', 'img'],
+              include: {
+                model: geographies,
+                attributes: ['name']
+              }
+            }
+          }
+        }
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
+      ]
+    })
+    if (!result || result.length == 0) {
+      error = new Error("Cannot get all dorm")
+      error.status = 500
+      throw error
+    } else {
+      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
     }
   } catch (err) {
     next(err)
