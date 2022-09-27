@@ -527,22 +527,66 @@ router.delete('/:dormId', async (req, res, next) => {
 })
 
 
-router.put('/edit', async (req, res) => {
-  editData = req.body.data
-  if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
-    if (editData.dorm != null || editData.dorm != undefined) {
-      await dorm.update(editData.dorm, {
-        where: { dormId: editData.dormId }
-      })
+router.put('/edit', upload, async (req, res, next) => {
+  let editData = JSON.parse(req.body.data)
+  try {
+    if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
+      //Edit Dorm
+      if (editData.dorm != null || editData.dorm != undefined) {
+        await dorm.update(editData.dorm, {
+          where: { dormId: editData.dormId }
+        })
+      }
+      //Edit Address
+      if (editData.address != null || editData.address != undefined) {
+        let findsubDistrictId = await subDistricts.findOne({
+          attributes: ['subDistrictsId'], where: { [Op.and]: { zip_code: editData.address.zipCodeId, name_th: editData.address.subDistrict } }
+        })
+        if (findsubDistrictId == null || findsubDistrictId == undefined) {
+          error = new Error('address is not found')
+          error.status = 403
+          throw error
+        }
+        let addressId = await dorm.findOne({ attributes: ['addressId'], where: { dormId: editData.dormId } })
+        let editAddress = {
+          number: editData.address.number,
+          street: editData.address.street,
+          alley: editData.address.alley,
+          subDistrictId: findsubDistrictId.subDistrictsId
+        }
+        await address.update(editAddress, {
+          where: { addressId: addressId.addressId }
+        })
+      }
+      //Edit RoomType
+      if (editData.roomTypes != null || editData.roomTypes != undefined) {
+        for (let i in editData.roomTypes) {
+          console.log(editData.roomTypes[i].type)
+          await roomType.update({
+            type: editData.roomTypes[i].type,
+            description: editData.roomTypes[i].description
+          }, {
+            where: { roomTypeId: editData.roomTypes[i].roomTypeId }
+          })
+          await dormHasRoomType.update({
+            price: editData.roomTypes[i].price,
+            area: editData.roomTypes[i].area,
+            deposit: editData.roomTypes[i].deposit
+          }, {
+            where: { [Op.and]: [{ roomTypeId: editData.roomTypes[i].roomTypeId }, { dormId: editData.dormId }] }
+          })
+        }
+      }
+      res.sendStatus(200)
+    } else {
+      error = new Error("No media for insert")
+      error.status = 500
+      throw error
+      // res.sendStatus(400).send('dormId not found')
     }
-    if (editData.address != null || editData.address != undefined) {
-      await address.update(editData.address, {
-        where: { addressId: editData.address.addressId }
-      })
-    }
-    // if(editData.roomType)
-  } else {
-    res.sendStatus(400).send('dormId not found')
+  } catch (err) {
+    console.log(err)
+    next(err)
   }
 })
 
