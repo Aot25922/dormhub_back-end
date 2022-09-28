@@ -10,7 +10,7 @@ const dorms = require('./dorm')
 const account = require('./account')
 const address = require('./address')
 const bank = require('./bank')
-const jwt = require('../middleware/jwt')
+const booking = require('./booking')
 app.use(cookieParser());
 app.use(cors({
   origin: true,
@@ -20,6 +20,7 @@ app.use('/account',account)
 app.use('/dorm',dorms)
 app.use('/address',address)
 app.use('/bank',bank)
+app.use('/booking',booking)
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', true);
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,UPDATE,OPTIONS');

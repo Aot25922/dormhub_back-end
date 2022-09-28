@@ -8,7 +8,7 @@ const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
 const func = require('../function/function');
 const upload = multer.upload
-const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, booking, bank } = db;
+const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -590,75 +590,75 @@ router.put('/edit', upload, async (req, res, next) => {
   }
 })
 
-router.post('/booking', upload, async (req, res, next) => {
-  let data = JSON.parse(req.body.data)
-  try {
-    await sequelize.transaction(async (t) => {
-      //Check for booking
-      await room.findOne({ attributes: ['status'] ,where: { roomId: data.roomId } }, { transaction: t }).then(findRoom => {
-        if (findRoom == undefined || findRoom.status == "booking") {
-          error = new Error("Cannot booking this room")
-          error.status = 403
-          throw error
-        }
-      })
-      await booking.findOne({where: {roomId: data.roomId}}, { transaction: t }).then(findBooking => {
-        if(findBooking != undefined || findBooking != null){
-          error = new Error("This room already booking")
-          error.status = 403
-          throw error
-        }
-      })
+// router.post('/booking', upload, async (req, res, next) => {
+//   let data = JSON.parse(req.body.data)
+//   try {
+//     await sequelize.transaction(async (t) => {
+//       //Check for booking
+//       await room.findOne({ attributes: ['status'] ,where: { roomId: data.roomId } }, { transaction: t }).then(findRoom => {
+//         if (findRoom == undefined || findRoom.status == "booking") {
+//           error = new Error("Cannot booking this room")
+//           error.status = 403
+//           throw error
+//         }
+//       })
+//       await booking.findOne({where: {roomId: data.roomId}}, { transaction: t }).then(findBooking => {
+//         if(findBooking != undefined || findBooking != null){
+//           error = new Error("This room already booking")
+//           error.status = 403
+//           throw error
+//         }
+//       })
 
-      //Check for customer role
-      await userAccount.findOne({ attributes: ['role'] ,where: { userId: data.userId } }, { transaction: t }).then(findUser => {
-        console.log(findUser)
-        if (findUser.role == undefined || findUser.role != "Customer") {
-          error = new Error("This account is not customer")
-          error.status = 403
-          throw error
-        }
-      })
-      //Check for bankAccount
-      await bankAccount.findAll({ where: { dormId: data.dormId } }, { transaction: t }).then(findBankAccount => {
-        if (findBankAccount == undefined || findBankAccount == null) {
-          error = new Error("This bankAccount not right")
-          error.status = 403
-          throw error
-        }
-      })
-      //Check for room
-      await room.findOne({ where: { [Op.and]: [{ roomId: data.roomId }, { dormId: data.dormId }] } }, { transaction: t }).then(findRoom => {
-        if(findRoom == undefined || findRoom == null){
-          error = new Error("This room not right")
-          error.status = 403
-          throw error
-        }
-      })
+//       //Check for customer role
+//       await userAccount.findOne({ attributes: ['role'] ,where: { userId: data.userId } }, { transaction: t }).then(findUser => {
+//         console.log(findUser)
+//         if (findUser.role == undefined || findUser.role != "Customer") {
+//           error = new Error("This account is not customer")
+//           error.status = 403
+//           throw error
+//         }
+//       })
+//       //Check for bankAccount
+//       await bankAccount.findAll({ where: { dormId: data.dormId } }, { transaction: t }).then(findBankAccount => {
+//         if (findBankAccount == undefined || findBankAccount == null) {
+//           error = new Error("This bankAccount not right")
+//           error.status = 403
+//           throw error
+//         }
+//       })
+//       //Check for room
+//       await room.findOne({ where: { [Op.and]: [{ roomId: data.roomId }, { dormId: data.dormId }] } }, { transaction: t }).then(findRoom => {
+//         if(findRoom == undefined || findRoom == null){
+//           error = new Error("This room not right")
+//           error.status = 403
+//           throw error
+//         }
+//       })
 
-      //Create booking table
-      await booking.create({
-        payDate: "",
-        startDate: "",
-        endDate: "",
-        status: "Waiting",
-        description: null,
-        userId: data.userId,
-        bankAccId: data.bankAccId,
-        roomId: data.roomId
-      }, { transaction: t })
+//       //Create booking table
+//       await booking.create({
+//         payDate: "",
+//         startDate: "",
+//         endDate: "",
+//         status: "Waiting",
+//         description: null,
+//         userId: data.userId,
+//         bankAccId: data.bankAccId,
+//         roomId: data.roomId
+//       }, { transaction: t })
 
-      // Update room status
-      await room.update({
-        status: "booking"
-      }, { where: { roomId: data.roomId }, transaction: t })
-    })
-    res.sendStatus(200)
-  } catch (err) {
-    console.log(err)
-    next(err)
-  }
-})
+//       // Update room status
+//       await room.update({
+//         status: "booking"
+//       }, { where: { roomId: data.roomId }, transaction: t })
+//     })
+//     res.sendStatus(200)
+//   } catch (err) {
+//     console.log(err)
+//     next(err)
+//   }
+// })
 
 
 module.exports = router
