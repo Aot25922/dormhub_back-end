@@ -235,7 +235,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
+        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media,bankAccount
         ]
       })
     } else {
