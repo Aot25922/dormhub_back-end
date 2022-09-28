@@ -8,7 +8,7 @@ const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
 const func = require('../function/function');
 const upload = multer.upload
-const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, booking } = db;
+const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, booking, bank } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -134,7 +134,7 @@ router.get('/', async (req, res, next) => {
             }
           }
         }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, bankAccount
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank} }
       ]
     })
     if (!result || result.length == 0) {
@@ -195,7 +195,7 @@ router.get('/owner', async (req, res, next) => {
             }
           }
         }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media,bankAccount 
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank}  }
       ]
     })
     if (!result || result.length == 0) {
@@ -235,7 +235,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media,bankAccount
+        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank} }
         ]
       })
     } else {
