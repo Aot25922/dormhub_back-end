@@ -7,6 +7,7 @@ const db = require('../db/index')
 const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
 const func = require('../function/function');
+const { isNull, isUndefined } = require('lodash');
 const upload = multer.upload
 const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
 var mime = {
@@ -590,75 +591,79 @@ router.put('/edit', upload, async (req, res, next) => {
   }
 })
 
-// router.post('/booking', upload, async (req, res, next) => {
-//   let data = JSON.parse(req.body.data)
-//   try {
-//     await sequelize.transaction(async (t) => {
-//       //Check for booking
-//       await room.findOne({ attributes: ['status'] ,where: { roomId: data.roomId } }, { transaction: t }).then(findRoom => {
-//         if (findRoom == undefined || findRoom.status == "booking") {
-//           error = new Error("Cannot booking this room")
-//           error.status = 403
-//           throw error
-//         }
-//       })
-//       await booking.findOne({where: {roomId: data.roomId}}, { transaction: t }).then(findBooking => {
-//         if(findBooking != undefined || findBooking != null){
-//           error = new Error("This room already booking")
-//           error.status = 403
-//           throw error
-//         }
-//       })
+router.post('/search', upload, async (req, res, next) => {
+  try {
+    const findData = JSON.parse(req.body.data)
+    const pageasNumber = parseInt(req.query.page)
+    const limitasNumber = parseInt(req.query.limit)
 
-//       //Check for customer role
-//       await userAccount.findOne({ attributes: ['role'] ,where: { userId: data.userId } }, { transaction: t }).then(findUser => {
-//         console.log(findUser)
-//         if (findUser.role == undefined || findUser.role != "Customer") {
-//           error = new Error("This account is not customer")
-//           error.status = 403
-//           throw error
-//         }
-//       })
-//       //Check for bankAccount
-//       await bankAccount.findAll({ where: { dormId: data.dormId } }, { transaction: t }).then(findBankAccount => {
-//         if (findBankAccount == undefined || findBankAccount == null) {
-//           error = new Error("This bankAccount not right")
-//           error.status = 403
-//           throw error
-//         }
-//       })
-//       //Check for room
-//       await room.findOne({ where: { [Op.and]: [{ roomId: data.roomId }, { dormId: data.dormId }] } }, { transaction: t }).then(findRoom => {
-//         if(findRoom == undefined || findRoom == null){
-//           error = new Error("This room not right")
-//           error.status = 403
-//           throw error
-//         }
-//       })
+    let page = 0
+    if (!isNaN(pageasNumber) && pageasNumber > 0) {
+      page = pageasNumber
+    }
 
-//       //Create booking table
-//       await booking.create({
-//         payDate: "",
-//         startDate: "",
-//         endDate: "",
-//         status: "Waiting",
-//         description: null,
-//         userId: data.userId,
-//         bankAccId: data.bankAccId,
-//         roomId: data.roomId
-//       }, { transaction: t })
+    let limit = 20
 
-//       // Update room status
-//       await room.update({
-//         status: "booking"
-//       }, { where: { roomId: data.roomId }, transaction: t })
-//     })
-//     res.sendStatus(200)
-//   } catch (err) {
-//     console.log(err)
-//     next(err)
-//   }
-// })
+    if (!isNaN(limitasNumber) && limitasNumber > 0) {
+      limit = limitasNumber
+    }
 
+    console.log(findData)
+    if(isNull(findData) || isUndefined(findData)){
+      error = new Error("Cannot read data")
+      error.status = 500
+      throw error
+    }
+    let result = await dorm.findAll({
+      subQuery: false,
+      where: {
+            [Op.or]: [
+              { 'name': { [Op.substring]: findData.search } },
+              { 'description': { [Op.substring]: findData.search } },
+              { '$address.number$': { [Op.substring]: findData.search } },
+              { '$address.street$': { [Op.substring]: findData.search } },
+              { '$address.alley$': { [Op.substring]: findData.search } },
+              { '$address.subDistrict.name_th$': { [Op.substring]: findData.search } },
+              { '$address.subDistrict.zip_code$': { [Op.substring]: findData.search } },
+              { '$address.subDistrict.district.name_th$': { [Op.substring]: findData.search } },
+              { '$address.subDistrict.district.province.name_th$': { [Op.substring]: findData.search } },
+              { '$address.subDistrict.district.province.geography.name$': { [Op.substring]: findData.search } },
+          ]
+      },
+      include: [{
+        model: address,
+        as:'address',
+        attributes: ['number', 'street', 'alley'],
+        include: {
+          model: subDistricts,
+          attributes: ['name_th', 'zip_code'],
+          include: {
+            model: districts,
+            attributes: ['name_th'],
+            include: {
+              model: provinces,
+              attributes: ['name_th', 'img'],
+              include: {
+                model: geographies,
+                attributes: ['name']
+              }
+            }
+          }
+        }
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank}  }
+      ]
+    })
+    if (!result) {
+      error = new Error("Cannot get any dorm")
+      error.status = 500
+      throw error
+    } else {
+      res.status(200).json({ results: result})
+    }
+  }catch(err){
+    console.log(err)
+    next(err)
+  }
+})
 
 module.exports = router
