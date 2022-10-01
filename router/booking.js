@@ -3,7 +3,7 @@ var router = express.Router();
 const db = require('../db/index');
 const multer = require('../middleware/multer')
 const upload = multer.upload
-const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType } = db;
+const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType, dormHasRoomType } = db;
 
 db.sequelize.sync();
 router.use((req, res, next) => {
@@ -13,18 +13,18 @@ router.use((req, res, next) => {
 
 router.get('/owner/:userId', async (req, res, next) => {
     try {
-        await dorm.findAll({attributes:['dormId'], where:{ownerId: req.params.userId}}).then(async findDormList => {
-            if(findDormList == undefined || findDormList.length == 0){
+        await dorm.findAll({ attributes: ['dormId'], where: { ownerId: req.params.userId } }).then(async findDormList => {
+            if (findDormList == undefined || findDormList.length == 0) {
                 error = new Error("Cannot find you dorm")
                 error.status = 403
                 throw error
             }
             let dormIdList = [];
-            for(let i in findDormList){
+            for (let i in findDormList) {
                 dormIdList.push(findDormList[i].dormId)
             }
-        let result = await booking.findAll({where:{'$room.dorm.dormId$':{[Op.in]:dormIdList}}, include:[{model: room, include:[{model: dorm}]}]})
-        res.status(200).json(result)
+            let result = await booking.findAll({ where: { '$room.dormId$': { [Op.in]: dormIdList } }, include: [bankAccount, { model: room,as: 'room', include: { model: roomType, include: {model:dorm} } }] })
+            res.status(200).json(result)
         })
     } catch (err) {
         console.log(err)
@@ -34,12 +34,12 @@ router.get('/owner/:userId', async (req, res, next) => {
 
 router.get('/:userId', async (req, res, next) => {
     try {
-        await booking.findAll({ where: { userId: req.params.userId }, include: [bankAccount, { model: room, include: [roomType, dorm] }] }).then(findBooking =>{
-            if(findBooking == undefined || findBooking == null){
+        await booking.findAll({ where: { userId: req.params.userId }, include: [bankAccount, { model: room, include: [{ model: roomType, include: [dorm] }] }] }).then(findBooking => {
+            if (findBooking == undefined || findBooking == null) {
                 error = new Error("Cannot find you booking")
                 error.status = 500
                 throw error
-            }else{
+            } else {
                 res.status(200).json(findBooking)
             }
         })

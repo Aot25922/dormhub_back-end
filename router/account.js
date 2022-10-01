@@ -38,7 +38,7 @@ router.post('/register', upload, async (req, res, next) => {
         let newData = JSON.parse(req.body.data);
         //Check for exist account
         await userAccount.findOne({
-            where: { email: newData.email }
+            where: sequelize.where(sequelize.fn('BINARY', sequelize.col('email')), newData.email),
         }).then(findAccount => {
             if (findAccount != null) {
                 error = new Error('This account already existed')
@@ -85,9 +85,7 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
             let newData = JSON.parse(req.body.data)
             await userAccount.findOne({
                 attributes: { exclude: ['email'] },
-                where: {
-                    email: newData.email
-                },
+                where: sequelize.where(sequelize.fn('BINARY', sequelize.col('email')), newData.email),
                 include: [{ model: dorm, attributes: ['dormId'] }]
             }).then(async findUserAccount => {
                 if (!findUserAccount) {
