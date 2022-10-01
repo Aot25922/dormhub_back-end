@@ -11,6 +11,27 @@ router.use((req, res, next) => {
     next()
 })
 
+router.get('/owner/:userId', async (req, res, next) => {
+    try {
+        await dorm.findAll({attributes:['dormId'], where:{ownerId: req.params.userId}}).then(async findDormList => {
+            if(findDormList == undefined || findDormList.length == 0){
+                error = new Error("Cannot find you dorm")
+                error.status = 403
+                throw error
+            }
+            let dormIdList = [];
+            for(let i in findDormList){
+                dormIdList.push(findDormList[i].dormId)
+            }
+        let result = await booking.findAll({where:{'$room.dorm.dormId$':{[Op.in]:dormIdList}}, include:[{model: room, include:[{model: dorm}]}]})
+        res.status(200).json(result)
+        })
+    } catch (err) {
+        console.log(err)
+        next(err)
+    }
+})
+
 router.get('/:userId', async (req, res, next) => {
     try {
         await booking.findAll({ where: { userId: req.params.userId }, include: [bankAccount, { model: room, include: [roomType, dorm] }] }).then(findBooking =>{
@@ -75,9 +96,9 @@ router.post('/new', upload, async (req, res, next) => {
 
             //Create booking table
             await booking.create({
-                payDate: "",
-                startDate: "",
-                endDate: "",
+                payDate: Date.now(),
+                startDate: data.startDate,
+                endDate: data.endDate,
                 status: "Waiting",
                 description: null,
                 userId: data.userId,
