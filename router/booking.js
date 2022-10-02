@@ -3,7 +3,7 @@ var router = express.Router();
 const db = require('../db/index');
 const multer = require('../middleware/multer')
 const upload = multer.upload
-const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType, dormHasRoomType } = db;
+const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType } = db;
 
 db.sequelize.sync();
 router.use((req, res, next) => {
@@ -23,9 +23,32 @@ router.get('/owner/:userId', async (req, res, next) => {
             for (let i in findDormList) {
                 dormIdList.push(findDormList[i].dormId)
             }
-            let result = await booking.findAll({ where: { '$room.dormId$': { [Op.in]: dormIdList } }, include: [bankAccount, { model: room,as: 'room', include: { model: roomType, include: {model:dorm} } }] })
+            let result = await booking.findAll({ where: { '$room.dormId$': { [Op.in]: dormIdList } }, include: [bankAccount, { model: room, as: 'room', include: { model: roomType, include: { model: dorm } } }] })
             res.status(200).json(result)
         })
+    } catch (err) {
+        console.log(err)
+        next(err)
+    }
+})
+
+router.put('/owner/update', [upload], async (req, res, next) => {
+    let data = JSON.parse(req.body.data)
+    try {
+        //Check for booking
+        await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }] }).then(findBoooking => {
+            if (findBoooking == undefined || findBoooking == null) {
+                error = new Error("Cannot find you booking")
+                error.status = 403
+                throw error
+            }
+        })
+        await booking.update({
+            status: data.status
+        }, {
+            where: { bookingId: data.bookingId }
+        })
+        res.sendStatus(200)
     } catch (err) {
         console.log(err)
         next(err)
