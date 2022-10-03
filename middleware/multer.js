@@ -14,13 +14,6 @@ const storage = multer.diskStorage({
                 }
                 cb(null, roomtypePath)
             }
-            else if (file.fieldname.includes("bankAccount")) {
-                bankAccountPath = path.join(directory, 'bankAccount')
-                if (!fs.existsSync(bankAccountPath)) {
-                    fs.mkdirSync(bankAccountPath);
-                }
-                cb(null, bankAccountPath)
-            }
             else {
                 dormPath = path.join(directory, 'dorm')
                 if (!fs.existsSync(dormPath)) {
@@ -28,8 +21,15 @@ const storage = multer.diskStorage({
                 }
                 cb(null, path.join(dormPath))
             }
-        } else {
-            throw new Error('sdfdf')
+        } else if (file.fieldname.includes("moneySlip")) {
+            bookingPath = path.join(directory, 'booking')
+            if (!fs.existsSync(bookingPath)) {
+                fs.mkdirSync(bookingPath);
+            }
+            cb(null, bookingPath)
+        }
+        else {
+            throw new Error('Image path error')
         }
     },
     filename: function (req, file, cb) {
@@ -41,6 +41,9 @@ const storage = multer.diskStorage({
                 fileName = file.fieldname + '-' + Date.now() + path.extname(file.originalname)
                 cb(null, fileName);
             }
+        } else if (file.fieldname.includes("moneySlip")) {
+            fileName = file.fieldname + '-' + Date.now() + path.extname(file.originalname)
+            cb(null, fileName);
         } else {
             throw new Error('Bruh')
         }
@@ -61,8 +64,9 @@ const upload = multer({
         var fileExt = path.extname(file.originalname);
         if ((file.fieldname.includes("dorm_")) && ext.includes(fileExt)) {
             cb(null, true)
-        }
-        else {
+        } else if ((file.fieldname.includes("moneySlip")) && ext.includes(fileExt)) {
+            cb(null, true)
+        } else {
             var error = new Error('Missing Fieldname')
             error.status = 403
             cb(error)

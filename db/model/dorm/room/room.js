@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
         field: 'roomNum'
       },
       status: {
-        type: DataTypes.STRING(10),
+        type: DataTypes.STRING(50),
         allowNull: false,
         field: 'status'
       },
