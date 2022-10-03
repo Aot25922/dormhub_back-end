@@ -109,7 +109,6 @@ router.get('/:userId', async (req, res, next) => {
 router.post('/new', upload, async (req, res, next) => {
     let data = JSON.parse(req.body.data)
     let files = req.files
-    console.log(files[0].path)
     try {
         await sequelize.transaction(async (t) => {
             //Check for booking
