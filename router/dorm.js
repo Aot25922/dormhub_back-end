@@ -7,7 +7,6 @@ const db = require('../db/index')
 const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
 const func = require('../function/function');
-const { isNull, isUndefined } = require('lodash');
 const upload = multer.upload
 const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
 var mime = {
@@ -135,7 +134,7 @@ router.get('/', async (req, res, next) => {
             }
           }
         }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank} }
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -196,7 +195,7 @@ router.get('/owner', async (req, res, next) => {
             }
           }
         }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank}  }
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -236,7 +235,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank} }
+        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
         ]
       })
     } else {
@@ -594,73 +593,72 @@ router.put('/edit', upload, async (req, res, next) => {
 router.post('/search', upload, async (req, res, next) => {
   try {
     const findData = JSON.parse(req.body.data)
-    const pageasNumber = parseInt(req.query.page)
-    const limitasNumber = parseInt(req.query.limit)
-
-    let page = 0
-    if (!isNaN(pageasNumber) && pageasNumber > 0) {
-      page = pageasNumber
-    }
-
-    let limit = 20
-
-    if (!isNaN(limitasNumber) && limitasNumber > 0) {
-      limit = limitasNumber
-    }
-
-    console.log(findData)
-    if(isNull(findData) || isUndefined(findData)){
+    if (_.isNull(findData) || _.isUndefined(findData)) {
       error = new Error("Cannot read data")
       error.status = 500
       throw error
     }
-    let result = await dorm.findAll({
-      subQuery: false,
-      where: {
+    let result = [];
+    for (let i in findData) {
+      if (findData[i]) {
+        let searhResult = await dorm.findAll({
+          subQuery: false,
+          where: {
             [Op.or]: [
-              { 'name': { [Op.substring]: findData.search } },
-              { 'description': { [Op.substring]: findData.search } },
-              { '$address.number$': { [Op.substring]: findData.search } },
-              { '$address.street$': { [Op.substring]: findData.search } },
-              { '$address.alley$': { [Op.substring]: findData.search } },
-              { '$address.subDistrict.name_th$': { [Op.substring]: findData.search } },
-              { '$address.subDistrict.zip_code$': { [Op.substring]: findData.search } },
-              { '$address.subDistrict.district.name_th$': { [Op.substring]: findData.search } },
-              { '$address.subDistrict.district.province.name_th$': { [Op.substring]: findData.search } },
-              { '$address.subDistrict.district.province.geography.name$': { [Op.substring]: findData.search } },
-          ]
-      },
-      include: [{
-        model: address,
-        as:'address',
-        attributes: ['number', 'street', 'alley'],
-        include: {
-          model: subDistricts,
-          attributes: ['name_th', 'zip_code'],
-          include: {
-            model: districts,
-            attributes: ['name_th'],
+              { 'name': { [Op.substring]: findData[i] } },
+              { 'description': { [Op.substring]: findData[i] } },
+              { '$address.number$': { [Op.substring]: findData[i] } },
+              { '$address.street$': { [Op.substring]: findData[i] } },
+              { '$address.alley$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.name_th$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.zip_code$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.district.name_th$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.district.province.name_th$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.district.province.geography.name$': { [Op.substring]: findData[i] } },
+            ]
+          },
+          include: [{
+            model: address,
+            as: 'address',
+            attributes: ['number', 'street', 'alley'],
             include: {
-              model: provinces,
-              attributes: ['name_th', 'img'],
+              model: subDistricts,
+              attributes: ['name_th', 'zip_code'],
               include: {
-                model: geographies,
-                attributes: ['name']
+                model: districts,
+                attributes: ['name_th'],
+                include: {
+                  model: provinces,
+                  attributes: ['name_th', 'img'],
+                  include: {
+                    model: geographies,
+                    attributes: ['name']
+                  }
+                }
               }
             }
-          }
+          }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+          ]
+        })
+        if (result.length == 0) {
+          result = searhResult
+          continue;
         }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include :{model: bank}  }
-      ]
-    })
+        if (searhResult.length != 0) {
+          result = _.intersectionBy(result, searhResult, 'dormId');
+        }
+      }
+
+    }
+
     if (!result) {
       error = new Error("Cannot get any dorm")
       error.status = 500
       throw error
     } else {
-      res.status(200).json({ results: result})
+      res.status(200).json({ results: result })
     }
-  }catch(err){
+  } catch (err) {
     console.log(err)
     next(err)
   }
