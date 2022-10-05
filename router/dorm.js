@@ -150,7 +150,7 @@ router.get('/', async (req, res, next) => {
 })
 
 //get all owner dorm
-router.get('/owner', async (req, res, next) => {
+router.get('/owner',[jwt.authenticateToken], async (req, res, next) => {
   try {
     const pageasNumber = parseInt(req.query.page)
     const limitasNumber = parseInt(req.query.limit)
@@ -167,6 +167,17 @@ router.get('/owner', async (req, res, next) => {
     if (!isNaN(limitasNumber) && limitasNumber > 0) {
       limit = limitasNumber
     }
+
+    //Check for userAccount
+    await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+      if (findUserAccount == undefined ||  findUserAccount.role != "Owner") {
+        error = new Error('This account cannot access')
+        error.status = 403
+        throw error
+      }
+    })
+
+    //Find dorm with pagination
     let result = await dorm.findAndCountAll({
       limit: limit,
       offset: page * limit,

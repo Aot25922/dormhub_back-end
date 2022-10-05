@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../db/index');
 const multer = require('../middleware/multer')
+const jwt = require('../middleware/jwt')
 const upload = multer.upload
 const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType } = db;
 var mime = {
@@ -41,9 +42,17 @@ router.get('/image/:bookingId', async (req, res, next) => {
         next(err)
     }
 })
-router.get('/owner/:userId', async (req, res, next) => {
+router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
     try {
-        await dorm.findAll({ attributes: ['dormId'], where: { ownerId: req.params.userId } }).then(async findDormList => {
+        //Check for userAccount
+        await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+            if (findUserAccount == undefined || findUserAccount.role != "Owner") {
+                error = new Error('This account cannot access')
+                error.status = 403
+                throw error
+            }
+        })
+        await dorm.findAll({ attributes: ['dormId'], where: { ownerId: req.userId } }).then(async findDormList => {
             if (findDormList == undefined || findDormList.length == 0) {
                 error = new Error("Cannot find you dorm")
                 error.status = 403
@@ -62,9 +71,17 @@ router.get('/owner/:userId', async (req, res, next) => {
     }
 })
 
-router.put('/owner/update', [upload], async (req, res, next) => {
+router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, next) => {
     let data = JSON.parse(req.body.data)
     try {
+        //Check for userAccount
+        await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+            if (findUserAccount == undefined || findUserAccount.role != "Owner") {
+                error = new Error('This account cannot access')
+                error.status = 403
+                throw error
+            }
+        })
         //Check for booking
         let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }] })
         if (result == undefined || result == null) {
@@ -81,7 +98,6 @@ router.put('/owner/update', [upload], async (req, res, next) => {
             await room.update({
                 status: "ว่าง"
             }, { where: { roomId: data.roomId } })
-            fs.unlinkSync(result.moneySlip)
         }
         res.sendStatus(200)
     } catch (err) {
@@ -90,9 +106,17 @@ router.put('/owner/update', [upload], async (req, res, next) => {
     }
 })
 
-router.get('/:userId', async (req, res, next) => {
+router.get('/', [jwt.authenticateToken], async (req, res, next) => {
     try {
-        await booking.findAll({ where: { userId: req.params.userId }, include: [bankAccount, { model: room, include: [{ model: roomType, include: [dorm] }] }] }).then(findBooking => {
+        //Check for userAccount
+        await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+            if (findUserAccount == undefined || findUserAccount.role != "Customer") {
+                error = new Error('This account cannot access')
+                error.status = 403
+                throw error
+            }
+        })
+        await booking.findAll({ where: { userId: req.userId }, include: [bankAccount, { model: room, include: [{ model: roomType, include: [dorm] }] }] }).then(findBooking => {
             if (findBooking == undefined || findBooking == null) {
                 error = new Error("Cannot find you booking")
                 error.status = 500
@@ -106,7 +130,7 @@ router.get('/:userId', async (req, res, next) => {
         next(err)
     }
 })
-router.post('/new', upload, async (req, res, next) => {
+router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
     let data = JSON.parse(req.body.data)
     let files = req.files
     try {
@@ -128,7 +152,7 @@ router.post('/new', upload, async (req, res, next) => {
             })
 
             //Check for customer role
-            await userAccount.findOne({ attributes: ['role'], where: { userId: data.userId } }, { transaction: t }).then(findUser => {
+            await userAccount.findOne({ attributes: ['role'], where: { userId: req.userId } }, { transaction: t }).then(findUser => {
                 console.log(findUser)
                 if (findUser.role == undefined || findUser.role != "Customer") {
                     error = new Error("This account is not customer")
@@ -160,7 +184,7 @@ router.post('/new', upload, async (req, res, next) => {
                 status: "รอการยืนยัน",
                 description: data.description,
                 moneySlip: files[0].path,
-                userId: data.userId,
+                userId: req.userId,
                 bankAccId: data.bankAccId,
                 roomId: data.roomId
             }, { transaction: t })
