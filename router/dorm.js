@@ -150,7 +150,7 @@ router.get('/', async (req, res, next) => {
 })
 
 //get all owner dorm
-router.get('/owner',[jwt.authenticateToken], async (req, res, next) => {
+router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
   try {
     const pageasNumber = parseInt(req.query.page)
     const limitasNumber = parseInt(req.query.limit)
@@ -170,7 +170,7 @@ router.get('/owner',[jwt.authenticateToken], async (req, res, next) => {
 
     //Check for userAccount
     await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
-      if (findUserAccount == undefined ||  findUserAccount.role != "Owner") {
+      if (findUserAccount == undefined || findUserAccount.role != "Owner") {
         error = new Error('This account cannot access')
         error.status = 403
         throw error
@@ -541,12 +541,14 @@ router.delete('/:dormId', async (req, res, next) => {
 router.put('/edit', upload, async (req, res, next) => {
   let editData = JSON.parse(req.body.data)
   try {
-    if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
-      //Edit Dorm
-      if (editData.dorm != null || editData.dorm != undefined) {
-        await dorm.update(editData.dorm, {
-          where: { dormId: editData.dormId }
-        })
+    await sequelize.transaction(async (t) => {
+      if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
+        //Edit Dorm
+        if (editData.dorm != null || editData.dorm != undefined) {
+          await dorm.update(editData.dorm, {
+            where: { dormId: editData.dormId }, transaction: t
+          })
+        }
       }
       //Edit Address
       if (editData.address != null || editData.address != undefined) {
@@ -566,35 +568,38 @@ router.put('/edit', upload, async (req, res, next) => {
           subDistrictId: findsubDistrictId.subDistrictsId
         }
         await address.update(editAddress, {
-          where: { addressId: addressId.addressId }
+          where: { addressId: addressId.addressId }, transaction: t
         })
       }
       //Edit RoomType
       if (editData.roomTypes != null || editData.roomTypes != undefined) {
         for (let i in editData.roomTypes) {
-          console.log(editData.roomTypes[i].type)
           await roomType.update({
             type: editData.roomTypes[i].type,
             description: editData.roomTypes[i].description
           }, {
-            where: { roomTypeId: editData.roomTypes[i].roomTypeId }
+            where: { roomTypeId: editData.roomTypes[i].roomTypeId }, transaction: t
           })
           await dormHasRoomType.update({
             price: editData.roomTypes[i].price,
             area: editData.roomTypes[i].area,
             deposit: editData.roomTypes[i].deposit
           }, {
-            where: { [Op.and]: [{ roomTypeId: editData.roomTypes[i].roomTypeId }, { dormId: editData.dormId }] }
+            where: { [Op.and]: [{ roomTypeId: editData.roomTypes[i].roomTypeId }, { dormId: editData.dormId }] },
+            transaction: t
           })
         }
       }
-      res.sendStatus(200)
-    } else {
-      error = new Error("No media for insert")
-      error.status = 500
-      throw error
-      // res.sendStatus(400).send('dormId not found')
-    }
+      //Edit Room
+      if (editData.room != null || editData.room != undefined) {
+        await room.bulkCreate(editData.room, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
+      }
+      //Edit Bankaccount
+      if(editData.bankAccount != null || editData.bankAccount != undefined){
+        await bankAccount.bulkCreate(editData.bankAccount, {updateOnDuplicate: ["accountNum", "accountName", "bankId"], transaction: t})
+      }
+    })
+    res.sendStatus(200)
   } catch (err) {
     console.log(err)
     next(err)

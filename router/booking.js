@@ -74,31 +74,33 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
 router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, next) => {
     let data = JSON.parse(req.body.data)
     try {
-        //Check for userAccount
-        await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
-            if (findUserAccount == undefined || findUserAccount.role != "Owner") {
-                error = new Error('This account cannot access')
+        await sequelize.transaction(async (t) => {
+            //Check for userAccount
+            await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+                if (findUserAccount == undefined || findUserAccount.role != "Owner") {
+                    error = new Error('This account cannot access')
+                    error.status = 403
+                    throw error
+                }
+            })
+            //Check for booking
+            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }] })
+            if (result == undefined || result == null) {
+                error = new Error("Cannot find you booking")
                 error.status = 403
                 throw error
             }
+            await booking.update({
+                status: data.status
+            }, {
+                where: { bookingId: data.bookingId }, transaction: t
+            })
+            if (data.status == "ยกเลิก") {
+                await room.update({
+                    status: "ว่าง"
+                }, { where: { roomId: data.roomId }, transaction: t })
+            }
         })
-        //Check for booking
-        let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }] })
-        if (result == undefined || result == null) {
-            error = new Error("Cannot find you booking")
-            error.status = 403
-            throw error
-        }
-        await booking.update({
-            status: data.status
-        }, {
-            where: { bookingId: data.bookingId }
-        })
-        if (data.status == "ยกเลิก") {
-            await room.update({
-                status: "ว่าง"
-            }, { where: { roomId: data.roomId } })
-        }
         res.sendStatus(200)
     } catch (err) {
         console.log(err)
