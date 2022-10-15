@@ -540,17 +540,45 @@ router.delete('/:dormId', async (req, res, next) => {
 
 router.put('/edit', upload, async (req, res, next) => {
   let editData = JSON.parse(req.body.data)
+  let files = req.files
   try {
     await sequelize.transaction(async (t) => {
       if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
         //Edit Dorm
         if (editData.dorm != null || editData.dorm != undefined) {
-          await dorm.update(editData.dorm, {
-            where: { dormId: editData.dormId }, transaction: t
-          })
+          await dorm.update(editData.dorm, { where: { dormId: editData.dormId }, transaction: t })
         }
       }
-      //Edit Address
+      //Edit dorm image
+      let dormMedia = []
+      files.forEach(async (file) => {
+        if (file.fieldname.includes("dorm_")) {
+          if (file.fieldname.includes("roomType")) {
+          } else {
+            dormMedia.push({
+              path: file.path,
+              name: file.fieldname,
+              dormId: editData.dormId,
+              roomTypeId: null
+            })
+          }
+        }
+      });
+      if (dormMedia.length != 0) {
+        //Create new media
+        await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.dormId, roomTypeId: null } } }).then(imgPath => {
+          if (imgPath.length != 0) {
+            imgPath.forEach(async (file) => {
+              if (fs.existsSync(file.path)) {
+                fs.unlinkSync(file.path)
+              }
+            })
+          }
+        })
+        await media.destroy({ where: { [Op.and]: { dormId: editData.dormId, roomTypeId: null } }, transaction: t })
+        await media.bulkCreate(dormMedia, { transaction: t })
+      }
+      // Edit Address
       if (editData.address != null || editData.address != undefined) {
         let findsubDistrictId = await subDistricts.findOne({
           attributes: ['subDistrictsId'], where: { [Op.and]: { zip_code: editData.address.zipCodeId, name_th: editData.address.subDistrict } }
@@ -573,7 +601,31 @@ router.put('/edit', upload, async (req, res, next) => {
       }
       //Edit RoomType
       if (editData.roomTypes != null || editData.roomTypes != undefined) {
+        let roomTypeMedia = []
         for (let i in editData.roomTypes) {
+          files.forEach(async (file) => {
+            if (file.fieldname.includes("dorm_")) {
+              if (file.fieldname.includes("roomType")) {
+                roomTypeMedia.push({
+                  path: file.path,
+                  name: file.fieldname,
+                  dormId: editData.dormId,
+                  roomTypeId: editData.roomTypes[i].roomTypeId
+                })
+              }
+            }
+          });
+          if (roomTypeMedia.some(v => v.roomTypeId == editData.roomTypes[i].roomTypeId)) {
+            await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.dormId, roomTypeId: editData.roomTypes[i].roomTypeId } } }).then(imgPath => {
+              if (imgPath.length != 0) {
+                imgPath.forEach(async (file) => {
+                  fs.unlinkSync(file)
+                })
+              }
+            })
+            await media.destroy({ where: { [Op.and]: { dormId: editData.dormId, roomTypeId: editData.roomTypes[i].roomTypeId } }, transaction: t })
+            media.bulkCreate(roomTypeMedia, { transaction: t })
+          }
           await roomType.update({
             type: editData.roomTypes[i].type,
             description: editData.roomTypes[i].description
@@ -590,13 +642,14 @@ router.put('/edit', upload, async (req, res, next) => {
           })
         }
       }
+
       //Edit Room
       if (editData.room != null || editData.room != undefined) {
         await room.bulkCreate(editData.room, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
       }
       //Edit Bankaccount
-      if(editData.bankAccount != null || editData.bankAccount != undefined){
-        await bankAccount.bulkCreate(editData.bankAccount, {updateOnDuplicate: ["accountNum", "accountName", "bankId"], transaction: t})
+      if (editData.bankAccount != null || editData.bankAccount != undefined) {
+        await bankAccount.bulkCreate(editData.bankAccount, { updateOnDuplicate: ["accountNum", "accountName", "bankId"], transaction: t })
       }
     })
     res.sendStatus(200)
