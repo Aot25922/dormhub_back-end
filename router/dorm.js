@@ -206,7 +206,7 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
             }
           }
         }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+      },roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -246,7 +246,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+        }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
         ]
       })
     } else {
@@ -580,67 +580,63 @@ router.put('/edit', upload, async (req, res, next) => {
       }
       // Edit Address
       if (editData.address != null || editData.address != undefined) {
-        let findsubDistrictId = await subDistricts.findOne({
-          attributes: ['subDistrictsId'], where: { [Op.and]: { zip_code: editData.address.zipCodeId, name_th: editData.address.subDistrict } }
-        })
-        if (findsubDistrictId == null || findsubDistrictId == undefined) {
-          error = new Error('address is not found')
-          error.status = 403
-          throw error
-        }
-        let addressId = await dorm.findOne({ attributes: ['addressId'], where: { dormId: editData.dormId } })
+        console.log(editData.address.subDistrictsId)
         let editAddress = {
           number: editData.address.number,
           street: editData.address.street,
           alley: editData.address.alley,
-          subDistrictId: findsubDistrictId.subDistrictsId
+          subDistrictId: editData.address.subDistrictsId
         }
         await address.update(editAddress, {
-          where: { addressId: addressId.addressId }, transaction: t
+          where: { addressId: editData.address.addressId }, transaction: t
         })
       }
+
       //Edit RoomType
-      if (editData.roomTypes != null || editData.roomTypes != undefined) {
+      if (editData.roomType != null || editData.roomType != undefined) {
+        //Edit roomType Image
         let roomTypeMedia = []
-        for (let i in editData.roomTypes) {
           files.forEach(async (file) => {
             if (file.fieldname.includes("dorm_")) {
               if (file.fieldname.includes("roomType")) {
                 roomTypeMedia.push({
                   path: file.path,
                   name: file.fieldname,
-                  dormId: editData.dormId,
-                  roomTypeId: editData.roomTypes[i].roomTypeId
+                  dormId: editData.roomType.dormId,
+                  roomTypeId: editData.roomType.roomTypeId
                 })
               }
             }
           });
-          if (roomTypeMedia.some(v => v.roomTypeId == editData.roomTypes[i].roomTypeId)) {
-            await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.dormId, roomTypeId: editData.roomTypes[i].roomTypeId } } }).then(imgPath => {
+          if (roomTypeMedia.length != 0) {
+            await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } } }).then(imgPath => {
               if (imgPath.length != 0) {
                 imgPath.forEach(async (file) => {
-                  fs.unlinkSync(file)
+                  if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path)
+                  }
                 })
               }
             })
-            await media.destroy({ where: { [Op.and]: { dormId: editData.dormId, roomTypeId: editData.roomTypes[i].roomTypeId } }, transaction: t })
+            await media.destroy({ where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } }, transaction: t })
             media.bulkCreate(roomTypeMedia, { transaction: t })
           }
+
+          //Update roomType
           await roomType.update({
-            type: editData.roomTypes[i].type,
-            description: editData.roomTypes[i].description
+            type: editData.roomType.type,
+            description: editData.roomType.description
           }, {
-            where: { roomTypeId: editData.roomTypes[i].roomTypeId }, transaction: t
+            where: { roomTypeId: editData.roomType.roomTypeId }, transaction: t
           })
           await dormHasRoomType.update({
-            price: editData.roomTypes[i].price,
-            area: editData.roomTypes[i].area,
-            deposit: editData.roomTypes[i].deposit
+            price: editData.roomType.price,
+            area: editData.roomType.area,
+            deposit: editData.roomType.deposit
           }, {
-            where: { [Op.and]: [{ roomTypeId: editData.roomTypes[i].roomTypeId }, { dormId: editData.dormId }] },
+            where: { [Op.and]: [{ roomTypeId: editData.roomType.roomTypeId }, { dormId: editData.roomType.dormId }] },
             transaction: t
           })
-        }
       }
 
       //Edit Room
