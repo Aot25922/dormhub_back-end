@@ -7,6 +7,7 @@ const db = require('../db/index')
 const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
 const func = require('../function/function');
+const { booking } = require('../db/index');
 const upload = multer.upload
 const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
 var mime = {
@@ -206,7 +207,7 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
             }
           }
         }
-      },roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+      }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -596,56 +597,68 @@ router.put('/edit', upload, async (req, res, next) => {
       if (editData.roomType != null || editData.roomType != undefined) {
         //Edit roomType Image
         let roomTypeMedia = []
-          files.forEach(async (file) => {
-            if (file.fieldname.includes("dorm_")) {
-              if (file.fieldname.includes("roomType")) {
-                roomTypeMedia.push({
-                  path: file.path,
-                  name: file.fieldname,
-                  dormId: editData.roomType.dormId,
-                  roomTypeId: editData.roomType.roomTypeId
-                })
-              }
+        files.forEach(async (file) => {
+          if (file.fieldname.includes("dorm_")) {
+            if (file.fieldname.includes("roomType")) {
+              roomTypeMedia.push({
+                path: file.path,
+                name: file.fieldname,
+                dormId: editData.roomType.dormId,
+                roomTypeId: editData.roomType.roomTypeId
+              })
             }
-          });
-          if (roomTypeMedia.length != 0) {
-            await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } } }).then(imgPath => {
-              if (imgPath.length != 0) {
-                imgPath.forEach(async (file) => {
-                  if (fs.existsSync(file.path)) {
-                    fs.unlinkSync(file.path)
-                  }
-                })
-              }
-            })
-            await media.destroy({ where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } }, transaction: t })
-            media.bulkCreate(roomTypeMedia, { transaction: t })
           }
+        });
+        if (roomTypeMedia.length != 0) {
+          await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } } }).then(imgPath => {
+            if (imgPath.length != 0) {
+              imgPath.forEach(async (file) => {
+                if (fs.existsSync(file.path)) {
+                  fs.unlinkSync(file.path)
+                }
+              })
+            }
+          })
+          await media.destroy({ where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } }, transaction: t })
+          media.bulkCreate(roomTypeMedia, { transaction: t })
+        }
 
-          //Update roomType
-          await roomType.update({
-            type: editData.roomType.type,
-            description: editData.roomType.description
-          }, {
-            where: { roomTypeId: editData.roomType.roomTypeId }, transaction: t
-          })
-          await dormHasRoomType.update({
-            price: editData.roomType.price,
-            area: editData.roomType.area,
-            deposit: editData.roomType.deposit
-          }, {
-            where: { [Op.and]: [{ roomTypeId: editData.roomType.roomTypeId }, { dormId: editData.roomType.dormId }] },
-            transaction: t
-          })
+        //Update roomType
+        await roomType.update({
+          type: editData.roomType.type,
+          description: editData.roomType.description
+        }, {
+          where: { roomTypeId: editData.roomType.roomTypeId }, transaction: t
+        })
+        await dormHasRoomType.update({
+          price: editData.roomType.price,
+          area: editData.roomType.area,
+          deposit: editData.roomType.deposit
+        }, {
+          where: { [Op.and]: [{ roomTypeId: editData.roomType.roomTypeId }, { dormId: editData.roomType.dormId }] },
+          transaction: t
+        })
       }
 
       //Edit Room
       if (editData.room != null || editData.room != undefined) {
         await room.bulkCreate(editData.room, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
+        for (let i in editData.room) {
+          if (editData.room[i].delete) {
+            await booking.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t  })
+            await room.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t })
+          }
+        }
+
       }
       //Edit Bankaccount
       if (editData.bankAccount != null || editData.bankAccount != undefined) {
         await bankAccount.bulkCreate(editData.bankAccount, { updateOnDuplicate: ["accountNum", "accountName", "bankId"], transaction: t })
+        for(let i in editData.bankAccount){
+          if(editData.bankAccount[i].delete){
+            await bankAccount.destroy({ where: {bankAccId : editData.bankAccount[i].bankAccId}, transaction: t})
+          }
+        }
       }
     })
     res.sendStatus(200)

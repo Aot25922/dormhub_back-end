@@ -52,15 +52,6 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage: storage,
     fileFilter: function (req, file, cb) {
-        try {
-            let data = JSON.parse(req.body.data)
-        }
-        catch (err) {
-            var error = new Error('Input Error to convert')
-            error.status = 403
-            console.log(err)
-            return cb(error)
-        }
         var fileExt = path.extname(file.originalname);
         if ((file.fieldname.includes("dorm_")) && ext.includes(fileExt)) {
             cb(null, true)
