@@ -55,14 +55,14 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
         await dorm.findAll({ attributes: ['dormId'], where: { ownerId: req.userId } }).then(async findDormList => {
             if (findDormList == undefined || findDormList.length == 0) {
                 error = new Error("Cannot find you dorm")
-                error.status = 403
+                error.status = 500
                 throw error
             }
             let dormIdList = [];
             for (let i in findDormList) {
                 dormIdList.push(findDormList[i].dormId)
             }
-            let result = await booking.findAll({ where: { '$room.dormId$': { [Op.in]: dormIdList } }, include: [bankAccount, { model: room, as: 'room', include: { model: roomType, include: { model: dorm } } }] })
+            let result = await booking.findAll({ where: { '$room.dormId$': { [Op.in]: dormIdList } }, include: [bankAccount, userAccount, { model: room, as: 'room', include: { model: roomType, include: { model: dorm } } }] })
             res.status(200).json(result)
         })
     } catch (err) {

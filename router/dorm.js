@@ -539,11 +539,19 @@ router.delete('/:dormId', async (req, res, next) => {
 })
 
 
-router.put('/edit', upload, async (req, res, next) => {
+router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
   let editData = JSON.parse(req.body.data)
   let files = req.files
   try {
     await sequelize.transaction(async (t) => {
+      //Check for userAccount
+      let owner = await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+        if (findUserAccount.role != "Owner") {
+          error = new Error('This account cannot access')
+          error.status = 403
+          throw error
+        }
+      })
       if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
         //Edit Dorm
         if (editData.dorm != null || editData.dorm != undefined) {
