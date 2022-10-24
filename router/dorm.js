@@ -6,9 +6,10 @@ var router = express.Router()
 const db = require('../db/index')
 const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
-const func = require('../function/function')
+const func = require('../function/function');
+const { booking } = require('../db/index');
 const upload = multer.upload
-const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount } = db;
+const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -20,16 +21,16 @@ router.use((req, res, next) => {
 })
 
 //Validate dorm name
-router.post('/validateDorm',upload, async (req, res, next) => {
+router.post('/validateDorm', upload, async (req, res, next) => {
   let newData = JSON.parse(req.body.data)
-  try{
-    let data = await dorm.findOne({where : {name : newData.dormName}})
-    if(data != undefined || data != null){
-        res.json(false).status(200)
-    }else{
+  try {
+    let data = await dorm.findOne({ where: { name: newData.dormName } })
+    if (data != undefined || data != null) {
+      res.json(false).status(200)
+    } else {
       res.json(true).status(200)
     }
-  }catch(err){
+  } catch (err) {
     console.log(err)
     next(err)
   }
@@ -98,7 +99,23 @@ router.get('/image/:dormId/:mediaId/:roomTypeId', async (req, res, next) => {
 //get all dorm
 router.get('/', async (req, res, next) => {
   try {
-    result = await dorm.findAll({
+    const pageasNumber = parseInt(req.query.page)
+    const limitasNumber = parseInt(req.query.limit)
+
+    let page = 0
+    if (!isNaN(pageasNumber) && pageasNumber > 0) {
+      page = pageasNumber
+    }
+
+    let limit = 10
+
+    if (!isNaN(limitasNumber) && limitasNumber > 0) {
+      limit = limitasNumber
+    }
+    let result = await dorm.findAndCountAll({
+      limit: limit,
+      offset: page * limit,
+      distinct: true,
       include: [{
         model: address,
         attributes: ['number', 'street', 'alley'],
@@ -118,7 +135,7 @@ router.get('/', async (req, res, next) => {
             }
           }
         }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
+      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -126,7 +143,79 @@ router.get('/', async (req, res, next) => {
       error.status = 500
       throw error
     } else {
-      res.status(200).json(result)
+      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
+    }
+  } catch (err) {
+    next(err)
+  }
+})
+
+//get all owner dorm
+router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
+  try {
+    const pageasNumber = parseInt(req.query.page)
+    const limitasNumber = parseInt(req.query.limit)
+    const dormIdList = req.query.dormIdList
+    console.log(dormIdList)
+
+    let page = 0
+    if (!isNaN(pageasNumber) && pageasNumber > 0) {
+      page = pageasNumber
+    }
+
+    let limit = 20
+
+    if (!isNaN(limitasNumber) && limitasNumber > 0) {
+      limit = limitasNumber
+    }
+
+    //Check for userAccount
+    await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+      if (findUserAccount == undefined || findUserAccount.role != "Owner") {
+        error = new Error('This account cannot access')
+        error.status = 403
+        throw error
+      }
+    })
+
+    //Find dorm with pagination
+    let result = await dorm.findAndCountAll({
+      limit: limit,
+      offset: page * limit,
+      distinct: true,
+      where: {
+        dormId: {
+          [Op.in]: dormIdList,
+        }
+      },
+      include: [{
+        model: address,
+        attributes: ['number', 'street', 'alley'],
+        include: {
+          model: subDistricts,
+          attributes: ['name_th', 'zip_code'],
+          include: {
+            model: districts,
+            attributes: ['name_th'],
+            include: {
+              model: provinces,
+              attributes: ['name_th', 'img'],
+              include: {
+                model: geographies,
+                attributes: ['name']
+              }
+            }
+          }
+        }
+      }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+      ]
+    })
+    if (!result || result.length == 0) {
+      error = new Error("Cannot get all dorm")
+      error.status = 500
+      throw error
+    } else {
+      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
     }
   } catch (err) {
     next(err)
@@ -158,7 +247,7 @@ router.get('/:dormId', async (req, res, next) => {
               }
             }
           }
-        }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] }, }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, attributes: ['accountNum', 'accountName', 'qrcode'] }
+        }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
         ]
       })
     } else {
@@ -450,24 +539,215 @@ router.delete('/:dormId', async (req, res, next) => {
 })
 
 
-router.put('/edit', async (req, res) => {
-  editData = req.body.data
-  if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
-    if (editData.dorm != null || editData.dorm != undefined) {
-      await dorm.update(editData.dorm, {
-        where: { dormId: editData.dormId }
+router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
+  let editData = JSON.parse(req.body.data)
+  let files = req.files
+  try {
+    await sequelize.transaction(async (t) => {
+      //Check for userAccount
+      let owner = await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+        if (findUserAccount.role != "Owner") {
+          error = new Error('This account cannot access')
+          error.status = 403
+          throw error
+        }
       })
-    }
-    if (editData.address != null || editData.address != undefined) {
-      await address.update(editData.address, {
-        where: { addressId: editData.address.addressId }
-      })
-    }
-    // if(editData.roomType)
-  } else {
-    res.sendStatus(400).send('dormId not found')
+      if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
+        //Edit Dorm
+        if (editData.dorm != null || editData.dorm != undefined) {
+          await dorm.update(editData.dorm, { where: { dormId: editData.dormId }, transaction: t })
+        }
+      }
+      //Edit dorm image
+      let dormMedia = []
+      files.forEach(async (file) => {
+        if (file.fieldname.includes("dorm_")) {
+          if (file.fieldname.includes("roomType")) {
+          } else {
+            dormMedia.push({
+              path: file.path,
+              name: file.fieldname,
+              dormId: editData.dormId,
+              roomTypeId: null
+            })
+          }
+        }
+      });
+      if (dormMedia.length != 0) {
+        //Create new media
+        await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.dormId, roomTypeId: null } } }).then(imgPath => {
+          if (imgPath.length != 0) {
+            imgPath.forEach(async (file) => {
+              if (fs.existsSync(file.path)) {
+                fs.unlinkSync(file.path)
+              }
+            })
+          }
+        })
+        await media.destroy({ where: { [Op.and]: { dormId: editData.dormId, roomTypeId: null } }, transaction: t })
+        await media.bulkCreate(dormMedia, { transaction: t })
+      }
+      // Edit Address
+      if (editData.address != null || editData.address != undefined) {
+        console.log(editData.address.subDistrictsId)
+        let editAddress = {
+          number: editData.address.number,
+          street: editData.address.street,
+          alley: editData.address.alley,
+          subDistrictId: editData.address.subDistrictsId
+        }
+        await address.update(editAddress, {
+          where: { addressId: editData.address.addressId }, transaction: t
+        })
+      }
+
+      //Edit RoomType
+      if (editData.roomType != null || editData.roomType != undefined) {
+        //Edit roomType Image
+        let roomTypeMedia = []
+        files.forEach(async (file) => {
+          if (file.fieldname.includes("dorm_")) {
+            if (file.fieldname.includes("roomType")) {
+              roomTypeMedia.push({
+                path: file.path,
+                name: file.fieldname,
+                dormId: editData.roomType.dormId,
+                roomTypeId: editData.roomType.roomTypeId
+              })
+            }
+          }
+        });
+        if (roomTypeMedia.length != 0) {
+          await media.findAll({ attributes: ['path'], where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } } }).then(imgPath => {
+            if (imgPath.length != 0) {
+              imgPath.forEach(async (file) => {
+                if (fs.existsSync(file.path)) {
+                  fs.unlinkSync(file.path)
+                }
+              })
+            }
+          })
+          await media.destroy({ where: { [Op.and]: { dormId: editData.roomType.dormId, roomTypeId: editData.roomType.roomTypeId } }, transaction: t })
+          media.bulkCreate(roomTypeMedia, { transaction: t })
+        }
+
+        //Update roomType
+        await roomType.update({
+          type: editData.roomType.type,
+          description: editData.roomType.description
+        }, {
+          where: { roomTypeId: editData.roomType.roomTypeId }, transaction: t
+        })
+        await dormHasRoomType.update({
+          price: editData.roomType.price,
+          area: editData.roomType.area,
+          deposit: editData.roomType.deposit
+        }, {
+          where: { [Op.and]: [{ roomTypeId: editData.roomType.roomTypeId }, { dormId: editData.roomType.dormId }] },
+          transaction: t
+        })
+      }
+
+      //Edit Room
+      if (editData.room != null || editData.room != undefined) {
+        await room.bulkCreate(editData.room, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
+        for (let i in editData.room) {
+          if (editData.room[i].delete) {
+            await booking.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t  })
+            await room.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t })
+          }
+        }
+
+      }
+      //Edit Bankaccount
+      if (editData.bankAccount != null || editData.bankAccount != undefined) {
+        await bankAccount.bulkCreate(editData.bankAccount, { updateOnDuplicate: ["accountNum", "accountName", "bankId"], transaction: t })
+        for(let i in editData.bankAccount){
+          if(editData.bankAccount[i].delete){
+            await bankAccount.destroy({ where: {bankAccId : editData.bankAccount[i].bankAccId}, transaction: t})
+          }
+        }
+      }
+    })
+    res.sendStatus(200)
+  } catch (err) {
+    console.log(err)
+    next(err)
   }
 })
 
+router.post('/search', upload, async (req, res, next) => {
+  try {
+    const findData = JSON.parse(req.body.data)
+    if (_.isNull(findData) || _.isUndefined(findData)) {
+      error = new Error("Cannot read data")
+      error.status = 500
+      throw error
+    }
+    let result = [];
+    for (let i in findData) {
+      if (findData[i]) {
+        let searhResult = await dorm.findAll({
+          subQuery: false,
+          where: {
+            [Op.or]: [
+              { 'name': { [Op.substring]: findData[i] } },
+              { 'description': { [Op.substring]: findData[i] } },
+              { '$address.number$': { [Op.substring]: findData[i] } },
+              { '$address.street$': { [Op.substring]: findData[i] } },
+              { '$address.alley$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.name_th$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.zip_code$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.district.name_th$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.district.province.name_th$': { [Op.substring]: findData[i] } },
+              { '$address.subDistrict.district.province.geography.name$': { [Op.substring]: findData[i] } },
+            ]
+          },
+          include: [{
+            model: address,
+            as: 'address',
+            attributes: ['number', 'street', 'alley'],
+            include: {
+              model: subDistricts,
+              attributes: ['name_th', 'zip_code'],
+              include: {
+                model: districts,
+                attributes: ['name_th'],
+                include: {
+                  model: provinces,
+                  attributes: ['name_th', 'img'],
+                  include: {
+                    model: geographies,
+                    attributes: ['name']
+                  }
+                }
+              }
+            }
+          }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+          ]
+        })
+        if (result.length == 0) {
+          result = searhResult
+          continue;
+        }
+        if (searhResult.length != 0) {
+          result = _.intersectionBy(result, searhResult, 'dormId');
+        }
+      }
+
+    }
+
+    if (!result) {
+      error = new Error("Cannot get any dorm")
+      error.status = 500
+      throw error
+    } else {
+      res.status(200).json({ results: result })
+    }
+  } catch (err) {
+    console.log(err)
+    next(err)
+  }
+})
 
 module.exports = router

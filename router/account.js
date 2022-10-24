@@ -38,7 +38,7 @@ router.post('/register', upload, async (req, res, next) => {
         let newData = JSON.parse(req.body.data);
         //Check for exist account
         await userAccount.findOne({
-            where: { email: newData.email }
+            where: sequelize.where(sequelize.fn('BINARY', sequelize.col('email')), newData.email),
         }).then(findAccount => {
             if (findAccount != null) {
                 error = new Error('This account already existed')
@@ -58,7 +58,7 @@ router.post('/register', upload, async (req, res, next) => {
             role: newData.role
         }).then(newAccount => {
             let token = jwt.generateAccessToken(newAccount.dataValues.userId)
-            res.cookie("token", token, { domain:'.dormhub.works',httpOnly: true,sameSite: 'strict', secure: true, })
+            res.cookie("token", token, { domain: '.dormhub.works', httpOnly: true, sameSite: 'strict', secure: true, })
             let result = _.omit(newAccount.dataValues, ['email', 'password'])
             res.status(200).json({ data: result })
 
@@ -71,23 +71,26 @@ router.post('/register', upload, async (req, res, next) => {
 router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) => {
     try {
         if (req.userId != null) {
-            await userAccount.findOne({ where: { userId: req.userId },include: [{ model: dorm, attributes: ['dormId'] }]}).then(findUserAccount => {
+            await userAccount.findOne({ where: { userId: req.userId }, include: [{ model: dorm, attributes: ['dormId'] }] }).then(findUserAccount => {
                 if (findUserAccount == null) {
                     error = new Error('This account cannot access')
                     error.status = 403
                     throw error
                 }
-                let result = _.omit(findUserAccount.dataValues, ['email','password'])
+                let result = _.omit(findUserAccount.dataValues, ['email', 'password'])
                 res.status(200).json({ data: result })
             })
         }
         else {
+            if ( req.body == undefined) {
+                error = new Error("Cannot login")
+                error.status = 403
+                throw error
+            }
             let newData = JSON.parse(req.body.data)
             await userAccount.findOne({
                 attributes: { exclude: ['email'] },
-                where: {
-                    email: newData.email
-                },
+                where: sequelize.where(sequelize.fn('BINARY', sequelize.col('email')), newData.email),
                 include: [{ model: dorm, attributes: ['dormId'] }]
             }).then(async findUserAccount => {
                 if (!findUserAccount) {
@@ -115,7 +118,7 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
 
 router.delete('/logout', async (req, res, next) => {
     try {
-        res.clearCookie('token')
+        res.clearCookie('token',{ domain:'.dormhub.works',httpOnly: true, sameSite: 'strict' , secure: true})
         res.status(200).end()
     } catch (err) {
         next(err)

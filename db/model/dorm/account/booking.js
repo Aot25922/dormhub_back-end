@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
                 field: 'endDate'
             },
             status: {
-                type: DataTypes.STRING(10),
+                type: DataTypes.STRING(50),
                 allowNull: false,
                 field: 'status'
             },
@@ -31,6 +31,11 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.STRING(120),
                 allowNull: true,
                 field: 'description'
+            },
+            moneySlip: {
+                type: DataTypes.STRING(1000),
+                allowNull: true,
+                field: 'moneySlip'
             }
         }, {
             tableName: 'booking'
