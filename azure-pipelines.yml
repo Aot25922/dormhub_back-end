@@ -12,8 +12,8 @@ resources:
 variables:
   # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: '65319f7b-8c26-41a7-92a4-adbb9c2588f6'
-  imageRepository: 'dormhubbackend'
-  containerRegistry: 'dormhubimage.azurecr.io'
+  imageRepository: 'DormHUB-back-end'
+  containerRegistry: 'imagedormhub.azurecr.io'
   dockerfilePath: '**/Dockerfile'
   tag: '$(Build.SourceBranchName)'
 
