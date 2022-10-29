@@ -9,7 +9,7 @@ const multer = require('../middleware/multer')
 const func = require('../function/function');
 const { booking } = require('../db/index');
 const upload = multer.upload
-const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
+const { subDistricts, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -116,26 +116,11 @@ router.get('/', async (req, res, next) => {
       limit: limit,
       offset: page * limit,
       distinct: true,
-      include: [{
-        model: address,
-        attributes: ['number', 'street', 'alley'],
-        include: {
-          model: subDistricts,
-          attributes: ['name_th', 'zip_code'],
-          include: {
-            model: districts,
-            attributes: ['name_th'],
-            include: {
-              model: provinces,
-              attributes: ['name_th', 'img'],
-              include: {
-                model: geographies,
-                attributes: ['name']
-              }
-            }
-          }
-        }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+      include: [
+         {model: roomType, through: {attributes: ['price', 'area', 'deposit']}}, room, {
+          model: userAccount,
+          attributes: ['fname', 'lname', 'email', 'phone']
+        }, media, {model: bankAccount, include: {model: bank}}
       ]
     })
     if (!result || result.length == 0) {
@@ -156,7 +141,6 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
     const pageasNumber = parseInt(req.query.page)
     const limitasNumber = parseInt(req.query.limit)
     const dormIdList = req.query.dormIdList
-    console.log(dormIdList)
 
     let page = 0
     if (!isNaN(pageasNumber) && pageasNumber > 0) {
@@ -188,26 +172,7 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
           [Op.in]: dormIdList,
         }
       },
-      include: [{
-        model: address,
-        attributes: ['number', 'street', 'alley'],
-        include: {
-          model: subDistricts,
-          attributes: ['name_th', 'zip_code'],
-          include: {
-            model: districts,
-            attributes: ['name_th'],
-            include: {
-              model: provinces,
-              attributes: ['name_th', 'img'],
-              include: {
-                model: geographies,
-                attributes: ['name']
-              }
-            }
-          }
-        }
-      }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+      include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -228,26 +193,7 @@ router.get('/:dormId', async (req, res, next) => {
     if (!(isNaN(parseInt(req.params.dormId)))) {
       result = await dorm.findOne({
         where: { dormId: req.params.dormId },
-        include: [{
-          model: address,
-          attributes: ['number', 'street', 'alley'],
-          include: {
-            model: subDistricts,
-            attributes: ['name_th', 'zip_code'],
-            include: {
-              model: districts,
-              attributes: ['name_th'],
-              include: {
-                model: provinces,
-                attributes: ['name_th', 'img'],
-                include: {
-                  model: geographies,
-                  attributes: ['name']
-                }
-              }
-            }
-          }
-        }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+        include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
         ]
       })
     } else {
@@ -287,40 +233,16 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
         }
       })
       //Check for existed dorm
-      await dorm.findAll({ include: [address] }).then(findDorm => {
+      await dorm.findAll().then(findDorm => {
         for (let i in findDorm) {
           if (findDorm[i].name == newData.dorm.name) {
             error = new Error('Dorm name is existed')
             error.status = 403
             throw error
           }
-          if (findDorm[i].address.number == newData.address.number && findDorm[i].address.street == newData.address.street && findDorm[i].address.alley == newData.address.allay) {
-            error = new Error('address is existed')
-            error.status = 403
-            throw error
-          }
         }
       })
-      //Create new address
-      let findsubDistrictId = await subDistricts.findOne({
-        attributes: ['subDistrictsId'], where: { [Op.and]: { zip_code: newData.address.zipCodeId, name_th: newData.address.subDistrict } }
-      })
-      if (findsubDistrictId == null || findsubDistrictId == undefined) {
-        error = new Error('address is not found')
-        error.status = 403
-        throw error
-      }
-      await address.create({
-        number: newData.address.number,
-        street: newData.address.street,
-        alley: newData.address.alley,
-        subDistrictId: findsubDistrictId.subDistrictsId
-      }, { transaction: t }).then(async new_address => {
-        if (new_address == null || new_address == undefined) {
-          error = new Error('Insert address fail')
-          error.status = 500
-          throw error
-        } else {
+
           //Create new dorm
           await dorm.create({
             name: newData.dorm.name,
@@ -331,7 +253,7 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
             acceptPercent: newData.dorm.acceptPercent,
             elecPerUnit: newData.dorm.elecPerUnit,
             waterPerUnit: newData.dorm.waterPerUnit,
-            addressId: new_address.addressId,
+            address: newData.dorm.address,
             ownerId: req.userId
           }, { transaction: t }).then(new_dorm => {
             if (new_dorm == null || new_dorm == undefined) {
@@ -342,8 +264,8 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
               new_dormId = new_dorm.dormId
             }
           })
-        }
-      })
+
+
       //Check for existed roomtype in request
       for (let i in newData.roomType) {
         let existRoomtype;
@@ -492,7 +414,7 @@ router.delete('/:dormId', async (req, res, next) => {
   try {
     await sequelize.transaction(async (t) => {
       //Check for dorm
-      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [address, bankAccount, roomType, room, media] })
+      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [bankAccount, roomType, room, media] })
       if (deleteDorm == null || deleteDorm == undefined) {
         throw new Error('Dorm Not Found')
       }
@@ -529,7 +451,6 @@ router.delete('/:dormId', async (req, res, next) => {
         await deleteDorm.roomTypes[i].destroy({ transaction: t })
       }
       await deleteDorm.destroy({ transaction: t })
-      await address.destroy({ where: { addressId: deleteDorm.addressId }, transaction: t })
     })
     res.sendStatus(200)
   } catch (err) {
@@ -586,19 +507,6 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
         })
         await media.destroy({ where: { [Op.and]: { dormId: editData.dormId, roomTypeId: null } }, transaction: t })
         await media.bulkCreate(dormMedia, { transaction: t })
-      }
-      // Edit Address
-      if (editData.address != null || editData.address != undefined) {
-        console.log(editData.address.subDistrictsId)
-        let editAddress = {
-          number: editData.address.number,
-          street: editData.address.street,
-          alley: editData.address.alley,
-          subDistrictId: editData.address.subDistrictsId
-        }
-        await address.update(editAddress, {
-          where: { addressId: editData.address.addressId }, transaction: t
-        })
       }
 
       //Edit RoomType
@@ -677,72 +585,75 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
 })
 
 router.post('/search', upload, async (req, res, next) => {
+  const pageasNumber = parseInt(req.query.page)
+  const limitasNumber = parseInt(req.query.limit)
+
+  let page = 0
+  if (!isNaN(pageasNumber) && pageasNumber > 0) {
+    page = pageasNumber
+  }
+
+  let limit = 20
+
+  if (!isNaN(limitasNumber) && limitasNumber > 0) {
+    limit = limitasNumber
+  }
   try {
     const findData = JSON.parse(req.body.data)
     if (_.isNull(findData) || _.isUndefined(findData)) {
-      error = new Error("Cannot read data")
+      const error = new Error("Cannot read data")
       error.status = 500
       throw error
     }
-    let result = [];
-    for (let i in findData) {
-      if (findData[i]) {
-        let searhResult = await dorm.findAll({
-          subQuery: false,
-          where: {
-            [Op.or]: [
-              { 'name': { [Op.substring]: findData[i] } },
-              { 'description': { [Op.substring]: findData[i] } },
-              { '$address.number$': { [Op.substring]: findData[i] } },
-              { '$address.street$': { [Op.substring]: findData[i] } },
-              { '$address.alley$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.name_th$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.zip_code$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.district.name_th$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.district.province.name_th$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.district.province.geography.name$': { [Op.substring]: findData[i] } },
-            ]
-          },
-          include: [{
-            model: address,
-            as: 'address',
-            attributes: ['number', 'street', 'alley'],
-            include: {
-              model: subDistricts,
-              attributes: ['name_th', 'zip_code'],
-              include: {
-                model: districts,
-                attributes: ['name_th'],
-                include: {
-                  model: provinces,
-                  attributes: ['name_th', 'img'],
-                  include: {
-                    model: geographies,
-                    attributes: ['name']
-                  }
-                }
-              }
-            }
-          }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
-          ]
-        })
-        if (result.length == 0) {
-          result = searhResult
-          continue;
-        }
-        if (searhResult.length != 0) {
-          result = _.intersectionBy(result, searhResult, 'dormId');
-        }
-      }
-
+    let searchInputKeyword;
+    let searchAddressKeyword;
+    let whereClause;
+    if(findData.search){
+      searchInputKeyword = findData.search
+    }
+    if(findData.region){
+      searchAddressKeyword = findData.region
+    }
+    if(findData.province){
+      searchAddressKeyword = findData.province
+    }if(findData.district){
+      searchAddressKeyword = findData.district
+    }if(findData.subDistrict){
+      searchAddressKeyword = findData.subDistrict
     }
 
+    if(searchInputKeyword && searchAddressKeyword){
+      whereClause = {
+        [Op.and]: [
+          {name: {[Op.substring] : searchInputKeyword}},
+          {address : {[Op.substring] : searchAddressKeyword}}
+        ],
+      }
+    }
+    else if(searchInputKeyword && !searchAddressKeyword){
+      whereClause = {
+          name: {[Op.substring] : searchInputKeyword}
+      }
+    }
+    else{
+      whereClause =
+        {address : {[Op.substring] : searchAddressKeyword}}
+    }
+
+    let result = await dorm.findAndCountAll({
+      limit: limit,
+      offset: page * limit,
+      distinct: true,
+      where: whereClause,
+      include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+      ]
+    })
     if (!result) {
       error = new Error("Cannot get any dorm")
       error.status = 500
       throw error
     } else {
-      res.status(200).json({ results: result })
+      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
     }
   } catch (err) {
     console.log(err)

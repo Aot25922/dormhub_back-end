@@ -34,7 +34,6 @@ db.QueryTypes = QueryTypes;
 // ใช้ Summon Model ที่เราสร้างเเละใส่(sequelize {เพื่อระบุ DB ที่ใช้อ้างอิง} ,DataTypes {ใช้ระบุประเภทข้อมูลใน Model})
 db.subDistricts = require('./model/address/subDistricts')(sequelize, Sequelize)
 db.districts = require('./model/address/districts')(sequelize, Sequelize)
-db.address = require('./model/address/address')(sequelize, Sequelize)
 db.provinces = require('./model/address/provinces')(sequelize, Sequelize)
 db.geographies = require('./model/address/geographies')(sequelize, Sequelize)
 db.booking = require('./model/dorm/account/booking')(sequelize, Sequelize)
@@ -84,18 +83,6 @@ db.subDistricts.belongsTo(db.districts, {
   foreignKey: 'districtId'
 })
 
-db.subDistricts.hasMany(db.address, {
-  foreignKey: {
-    name: 'subDistrictId',
-    field: 'subDistrictId'
-  },
-  allowNull: false
-})
-
-db.address.belongsTo(db.subDistricts, {
-  foreignKey: 'subDistrictId'
-})
-
 db.userAccount.hasMany(db.dorm, {
   foreignKey: {
     name: 'ownerId',
@@ -107,17 +94,6 @@ db.dorm.belongsTo(db.userAccount, {
   foreignKey: 'ownerId',
 })
 
-db.dorm.belongsTo(db.address,{
-  foreignKey: 'addressId'
-}
-)
-db.address.hasOne(db.dorm, {
-  foreignKey: {
-    name: 'addressId',
-    field:'addressId',
-    allowNull: false
-  }
-})
 
 db.dorm.hasMany(db.bankAccount, {
   foreignKey: {
