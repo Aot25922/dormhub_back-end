@@ -11,11 +11,11 @@ resources:
 
 variables:
   # Container registry service connection established during pipeline creation
-  dockerRegistryServiceConnection: '65319f7b-8c26-41a7-92a4-adbb9c2588f6'
+  dockerRegistryServiceConnection: '215421f7-028e-4fc2-941f-cd738742be49'
   imageRepository: 'dormhubbackend'
-  containerRegistry: 'dormhubimage.azurecr.io'
-  dockerfilePath: '**/Dockerfile'
-  tag: '$(Build.SourceBranchName)'
+  containerRegistry: 'imagedormhub.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
 
   # Agent VM image name
   vmImageName: 'ubuntu-latest'
