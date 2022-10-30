@@ -622,7 +622,7 @@ router.post('/search', upload, async (req, res, next) => {
       searchAddressKeyword = findData.subDistrict
     }
 
-    if(searchInputKeyword && searchAddressKeyword){
+    if((searchInputKeyword && searchAddressKeyword)){
       whereClause = {
         [Op.and]: [
           {name: {[Op.substring] : searchInputKeyword}},
@@ -631,8 +631,12 @@ router.post('/search', upload, async (req, res, next) => {
       }
     }
     else if(searchInputKeyword && !searchAddressKeyword){
+      console.log("I AM HERE")
       whereClause = {
-          name: {[Op.substring] : searchInputKeyword}
+        [Op.or]: [
+          {name: {[Op.substring] : searchInputKeyword}},
+          {address : {[Op.substring] : searchInputKeyword}}
+        ],
       }
     }
     else{
