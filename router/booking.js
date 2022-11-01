@@ -75,6 +75,13 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
     let data = JSON.parse(req.body.data)
     try {
         await sequelize.transaction(async (t) => {
+            //Check Status
+            const statusList = ["ยืนยันการโอน", "รอการโอน", "ยกเลิก"]
+            if (!statusList.includes(data.status)) {
+                error = new Error('This status not found')
+                error.status = 403
+                throw error
+            }
             //Check for userAccount
             await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
                 if (findUserAccount == undefined || findUserAccount.role != "Owner") {
@@ -134,7 +141,6 @@ router.get('/', [jwt.authenticateToken], async (req, res, next) => {
 })
 router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
     let data = JSON.parse(req.body.data)
-    let files = req.files
     try {
         await sequelize.transaction(async (t) => {
             //Check for booking
@@ -145,11 +151,13 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
                     throw error
                 }
             })
-            await booking.findOne({ where: { roomId: data.roomId } }, { transaction: t }).then(findBooking => {
-                if (findBooking != undefined || findBooking != null) {
-                    error = new Error("This room already booking")
-                    error.status = 403
-                    throw error
+            await booking.findAll({ where: { roomId: data.roomId } }, { transaction: t }).then(findBooking => {
+                for (let i in findBooking) {
+                    if (findBooking[i].status == "รอการยืนยัน") {
+                        error = new Error("This room already booking")
+                        error.status = 403
+                        throw error
+                    }
                 }
             })
 
@@ -162,14 +170,20 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
                     throw error
                 }
             })
+
             //Check for bankAccount
             await bankAccount.findAll({ where: { dormId: data.dormId } }, { transaction: t }).then(findBankAccount => {
-                if (findBankAccount == undefined || findBankAccount == null) {
+                let checkBankAccount = []
+                for (let i in findBankAccount) {
+                    checkBankAccount.push(findBankAccount[i].bankAccId)
+                }
+                if (!checkBankAccount.includes(data.bankAccId)) {
                     error = new Error("This bankAccount not right")
                     error.status = 403
                     throw error
                 }
             })
+
             //Check for room
             await room.findOne({ where: { [Op.and]: [{ roomId: data.roomId }, { dormId: data.dormId }] } }, { transaction: t }).then(findRoom => {
                 if (findRoom == undefined || findRoom == null) {
@@ -185,7 +199,6 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
                 endDate: data.endDate,
                 status: "รอการยืนยัน",
                 description: data.description,
-                moneySlip: files[0].path,
                 userId: req.userId,
                 bankAccId: data.bankAccId,
                 roomId: data.roomId
@@ -199,9 +212,64 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
         res.sendStatus(200)
     } catch (err) {
         console.log(err)
+        next(err)
+    }
+})
+
+router.put('/update', [upload, jwt.authenticateToken], async (req, res, next) => {
+    let data = JSON.parse(req.body.data)
+    let files = req.files
+    try {
+        await sequelize.transaction(async (t) => {
+            //Check for userAccount
+            await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+                if (findUserAccount == undefined || findUserAccount.role != "Customer") {
+                    error = new Error('This account cannot access')
+                    error.status = 403
+                    throw error
+                }
+            })
+            //Check for booking
+            let result = await booking.findOne({ where: { bookingId: data.bookingId } })
+            if (result == undefined || result == null) {
+                error = new Error("Cannot find you booking")
+                error.status = 403
+                throw error
+            }
+            if (data.status == "ยืนยันการโอน") {
+                if (result.moneySlip && files[0]) {
+                    if (fs.existsSync(result.moneySlip)) {
+                        fs.unlinkSync(result.moneySlip)
+                    }
+                }
+                if (!files[0]) {
+                    error = new Error("No money slip")
+                    error.status = 403
+                    throw error
+                }
+                await booking.update({
+                    status: data.status,
+                    moneySlip: files[0].path,
+                }, {
+                    where: { bookingId: data.bookingId }, transaction: t
+                })
+            } else if (data.status == "ยกเลิก") {
+                await booking.update({
+                    status: data.status
+                }, {
+                    where: { bookingId: data.bookingId }, transaction: t
+                })
+                await room.update({
+                    status: "ว่าง"
+                }, { where: { roomId: data.roomId }, transaction: t })
+            }
+        })
+        res.sendStatus(200)
+    } catch (err) {
         files.forEach(async (file) => {
             fs.unlinkSync(file.path)
         })
+        console.log(err)
         next(err)
     }
 })

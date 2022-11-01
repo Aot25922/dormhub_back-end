@@ -117,10 +117,10 @@ router.get('/', async (req, res, next) => {
       offset: page * limit,
       distinct: true,
       include: [
-         {model: roomType, through: {attributes: ['price', 'area', 'deposit']}}, room, {
+        { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, {
           model: userAccount,
           attributes: ['fname', 'lname', 'email', 'phone']
-        }, media, {model: bankAccount, include: {model: bank}}
+        }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -243,27 +243,27 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
         }
       })
 
-          //Create new dorm
-          await dorm.create({
-            name: newData.dorm.name,
-            openTime: newData.dorm.openTime,
-            closeTime: newData.dorm.closeTime,
-            description: newData.dorm.description,
-            rating: newData.dorm.rating,
-            acceptPercent: newData.dorm.acceptPercent,
-            elecPerUnit: newData.dorm.elecPerUnit,
-            waterPerUnit: newData.dorm.waterPerUnit,
-            address: newData.dorm.address,
-            ownerId: req.userId
-          }, { transaction: t }).then(new_dorm => {
-            if (new_dorm == null || new_dorm == undefined) {
-              error = new Error('Insert dorm fail')
-              error.status = 500
-              throw error
-            } else {
-              new_dormId = new_dorm.dormId
-            }
-          })
+      //Create new dorm
+      await dorm.create({
+        name: newData.dorm.name,
+        openTime: newData.dorm.openTime,
+        closeTime: newData.dorm.closeTime,
+        description: newData.dorm.description,
+        rating: newData.dorm.rating,
+        acceptPercent: newData.dorm.acceptPercent,
+        elecPerUnit: newData.dorm.elecPerUnit,
+        waterPerUnit: newData.dorm.waterPerUnit,
+        address: newData.dorm.address,
+        ownerId: req.userId
+      }, { transaction: t }).then(new_dorm => {
+        if (new_dorm == null || new_dorm == undefined) {
+          error = new Error('Insert dorm fail')
+          error.status = 500
+          throw error
+        } else {
+          new_dormId = new_dorm.dormId
+        }
+      })
 
 
       //Check for existed roomtype in request
@@ -463,6 +463,7 @@ router.delete('/:dormId', async (req, res, next) => {
 router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
   let editData = JSON.parse(req.body.data)
   let files = req.files
+  let notEditRoom = []
   try {
     await sequelize.transaction(async (t) => {
       //Check for userAccount
@@ -558,11 +559,21 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
 
       //Edit Room
       if (editData.room != null || editData.room != undefined) {
-        await room.bulkCreate(editData.room, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
         for (let i in editData.room) {
-          if (editData.room[i].delete) {
-            await booking.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t  })
-            await room.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t })
+          await booking.findAll({ where: { roomId: editData.room[i].roomId } }, { transaction: t }).then(findBooking => {
+            for (let i in findBooking) {
+              if (findBooking[i].status == "รอการยืนยัน") {
+                notEditRoom.push(editData.room[i])
+              }
+            }
+          })
+        }
+        let editRoom = _.differenceBy(editData.room, notEditRoom, 'roomId');
+        await room.bulkCreate(editRoom, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
+        for (let i in editRoom) {
+          if (editRoom[i].delete) {
+            await booking.destroy({ where: { roomId: editRoom[i].roomId }, transaction: t })
+            await room.destroy({ where: { roomId: editRoom[i].roomId }, transaction: t })
           }
         }
 
@@ -570,13 +581,20 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
       //Edit Bankaccount
       if (editData.bankAccount != null || editData.bankAccount != undefined) {
         await bankAccount.bulkCreate(editData.bankAccount, { updateOnDuplicate: ["accountNum", "accountName", "bankId"], transaction: t })
-        for(let i in editData.bankAccount){
-          if(editData.bankAccount[i].delete){
-            await bankAccount.destroy({ where: {bankAccId : editData.bankAccount[i].bankAccId}, transaction: t})
+        for (let i in editData.bankAccount) {
+          if (editData.bankAccount[i].delete) {
+            await bankAccount.destroy({ where: { bankAccId: editData.bankAccount[i].bankAccId }, transaction: t })
           }
         }
       }
     })
+    if (notEditRoom.length != 0) {
+      let message = "ห้องเหล่านี้ไม่สามารถเเก้ไขได้ : "
+      for (let i in notEditRoom) {
+        message += 'เลขห้อง : ' + notEditRoom[i].roomNum + ", "
+      }
+      res.json({ message: message }).status(200)
+    }
     res.sendStatus(200)
   } catch (err) {
     console.log(err)
@@ -608,40 +626,40 @@ router.post('/search', upload, async (req, res, next) => {
     let searchInputKeyword;
     let searchAddressKeyword;
     let whereClause;
-    if(findData.search){
+    if (findData.search) {
       searchInputKeyword = findData.search
     }
-    if(findData.region){
+    if (findData.region) {
       searchAddressKeyword = findData.region
     }
-    if(findData.province){
+    if (findData.province) {
       searchAddressKeyword = findData.province
-    }if(findData.district){
+    } if (findData.district) {
       searchAddressKeyword = findData.district
-    }if(findData.subDistrict){
+    } if (findData.subDistrict) {
       searchAddressKeyword = findData.subDistrict
     }
 
-    if((searchInputKeyword && searchAddressKeyword)){
+    if ((searchInputKeyword && searchAddressKeyword)) {
       whereClause = {
         [Op.and]: [
-          {name: {[Op.substring] : searchInputKeyword}},
-          {address : {[Op.substring] : searchAddressKeyword}}
+          { name: { [Op.substring]: searchInputKeyword } },
+          { address: { [Op.substring]: searchAddressKeyword } }
         ],
       }
     }
-    else if(searchInputKeyword && !searchAddressKeyword){
+    else if (searchInputKeyword && !searchAddressKeyword) {
       console.log("I AM HERE")
       whereClause = {
         [Op.or]: [
-          {name: {[Op.substring] : searchInputKeyword}},
-          {address : {[Op.substring] : searchInputKeyword}}
+          { name: { [Op.substring]: searchInputKeyword } },
+          { address: { [Op.substring]: searchInputKeyword } }
         ],
       }
     }
-    else{
+    else {
       whereClause =
-        {address : {[Op.substring] : searchAddressKeyword}}
+        { address: { [Op.substring]: searchAddressKeyword } }
     }
 
     let result = await dorm.findAndCountAll({
