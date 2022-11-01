@@ -6,6 +6,7 @@ var router = express.Router()
 const db = require('../db/index')
 const jwt = require('../middleware/jwt')
 const multer = require('../middleware/multer')
+var nodemailer = require('nodemailer');
 const func = require('../function/function');
 const { booking } = require('../db/index');
 const upload = multer.upload
@@ -19,6 +20,21 @@ router.use((req, res, next) => {
   console.log('Time: ', Date.now())
   next()
 })
+//nodemailer
+var transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'dormhub.work@gmail.com',
+    pass: 'tjzactygnkmjepvl'
+  }
+});
+
+var mailOptions = {
+  from: 'dormHub.work@gmail.com',
+  to: 'aottanapat25922@gmail.com',
+  subject: 'Sending Email using Node.js',
+  text: 'That was easy!'
+};
 
 //Validate dorm name
 router.post('/validateDorm', upload, async (req, res, next) => {
@@ -562,7 +578,7 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
         for (let i in editData.room) {
           await booking.findAll({ where: { roomId: editData.room[i].roomId } }, { transaction: t }).then(findBooking => {
             for (let i in findBooking) {
-              if (findBooking[i].status == "รอการยืนยัน") {
+              if (findBooking[i].status == "รอการยืนยัน" || findBooking[i].status == "รอการโอน") {
                 notEditRoom.push(editData.room[i])
               }
             }
