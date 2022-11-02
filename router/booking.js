@@ -247,15 +247,14 @@ router.put('/update', [upload, jwt.authenticateToken], async (req, res, next) =>
     try {
         await sequelize.transaction(async (t) => {
             //Check for userAccount
-            await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
-                if (findUserAccount == undefined || findUserAccount.role != "Customer") {
-                    error = new Error('This account cannot access')
-                    error.status = 403
-                    throw error
-                }
-            })
+            let findUserAccount = await userAccount.findOne({ where: { userId: req.userId } })
+            if (findUserAccount == undefined || findUserAccount.role != "Customer") {
+                error = new Error('This account cannot access')
+                error.status = 403
+                throw error
+            }
             //Check for booking
-            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include:[{model: room, include:[{model: dorm, include:[userAccount]}]}] })
+            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, include: [{ model: dorm, include: [userAccount] }] }] })
             if (result == undefined || result == null) {
                 error = new Error("Cannot find you booking")
                 error.status = 403
@@ -288,12 +287,23 @@ router.put('/update', [upload, jwt.authenticateToken], async (req, res, next) =>
                     status: "ว่าง"
                 }, { where: { roomId: data.roomId }, transaction: t })
             }
-            let mailOptions = {
-                from: 'dormHub.work@gmail.com',
-                to: result.room.dorm.userAccount.email,
-                subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
-                text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.room.status}' เป็น '${data.status}'`
-            };
+            let mailOptions
+            if (result.status == "ยืนยันการโอน") {
+                mailOptions = {
+                    from: 'dormHub.work@gmail.com',
+                    to: result.room.dorm.userAccount.email,
+                    subject: 'ใบสลิปการจ่ายค่าจองห้องพักมีการเปลี่ยนเเปลง',
+                    text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนใบสลิปการจ่ายค่าจองห้องพักของผู้ใช้ ชื่อ : ${findUserAccount.fname} ${findUserAccount.lname} e-mail : ${findUserAccount.email} เบอร์โทร : ${findUserAccount.phone}`
+                };
+            }
+            else {
+                mailOptions = {
+                    from: 'dormHub.work@gmail.com',
+                    to: result.room.dorm.userAccount.email,
+                    subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
+                    text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.room.status}' เป็น '${data.status}'`
+                };
+            }
             transporter.sendMail(mailOptions, function (error, info) {
                 if (error) {
                     console.log(error);
