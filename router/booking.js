@@ -1,10 +1,12 @@
 var express = require('express');
+var nodemailer = require('nodemailer');
 var router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const db = require('../db/index');
 const multer = require('../middleware/multer')
-const jwt = require('../middleware/jwt')
+const jwt = require('../middleware/jwt');
+const { result } = require('lodash');
 const upload = multer.upload
 const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType } = db;
 var mime = {
@@ -17,6 +19,15 @@ router.use((req, res, next) => {
     console.log('Time: ', Date.now())
     next()
 })
+
+//nodemailer
+var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'dormhub.work@gmail.com',
+        pass: 'tjzactygnkmjepvl'
+    }
+});
 
 router.get('/image/:bookingId', async (req, res, next) => {
     try {
@@ -91,7 +102,7 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
                 }
             })
             //Check for booking
-            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }] })
+            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }, userAccount] })
             if (result == undefined || result == null) {
                 error = new Error("Cannot find you booking")
                 error.status = 403
@@ -107,7 +118,21 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
                     status: "ว่าง"
                 }, { where: { roomId: data.roomId }, transaction: t })
             }
+            let mailOptions = {
+                from: 'dormHub.work@gmail.com',
+                to: result.userAccount.email,
+                subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
+                text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.status}' เป็น '${data.status}'`
+            };
+            transporter.sendMail(mailOptions, function (error, info) {
+                if (error) {
+                    console.log(error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+            })
         })
+
         res.sendStatus(200)
     } catch (err) {
         console.log(err)
@@ -230,7 +255,7 @@ router.put('/update', [upload, jwt.authenticateToken], async (req, res, next) =>
                 }
             })
             //Check for booking
-            let result = await booking.findOne({ where: { bookingId: data.bookingId } })
+            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include:[{model: room, include:[{model: dorm, include:[userAccount]}]}] })
             if (result == undefined || result == null) {
                 error = new Error("Cannot find you booking")
                 error.status = 403
@@ -263,6 +288,19 @@ router.put('/update', [upload, jwt.authenticateToken], async (req, res, next) =>
                     status: "ว่าง"
                 }, { where: { roomId: data.roomId }, transaction: t })
             }
+            let mailOptions = {
+                from: 'dormHub.work@gmail.com',
+                to: result.room.dorm.userAccount.email,
+                subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
+                text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.room.status}' เป็น '${data.status}'`
+            };
+            transporter.sendMail(mailOptions, function (error, info) {
+                if (error) {
+                    console.log(error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+            })
         })
         res.sendStatus(200)
     } catch (err) {
