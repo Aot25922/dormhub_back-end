@@ -180,6 +180,11 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
       error.status = 500
       throw error
     } else {
+      for (let i in result.rows) {
+        if (result.rows[i].ownerId != req.userId) {
+          result.rows.splice(i, 1)
+        }
+      }
       res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
     }
   } catch (err) {
@@ -232,6 +237,7 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
           throw error
         }
       })
+
       //Check for existed dorm
       await dorm.findAll().then(findDorm => {
         for (let i in findDorm) {
@@ -409,14 +415,45 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
 })
 
 //delete dorm by dormId
-router.delete('/:dormId', async (req, res, next) => {
+router.delete('/:dormId', [jwt.authenticateToken], async (req, res, next) => {
   id = req.params.dormId
   try {
     await sequelize.transaction(async (t) => {
+
       //Check for dorm
-      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [bankAccount, roomType, room, media] })
+      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [bankAccount, roomType, { model: room, include: [booking] }, media] })
       if (deleteDorm == null || deleteDorm == undefined) {
         throw new Error('Dorm Not Found')
+      }
+      if (!deleteDorm || deleteDorm.ownerId != req.userId) {
+        error = new Error('This account cannot access')
+        error.status = 403
+        throw error
+      }
+      if (deleteDorm.rooms.length == 0 || deleteDorm.rooms.length == undefined) {
+        throw new Error('rooms Not Found')
+      } else {
+        let bookingIdList = []
+        for (let i in deleteDorm.rooms) {
+          if (!deleteDorm.rooms[i].booking) {
+            continue
+          }
+          if (deleteDorm.rooms[i].booking.status == "รอการยืนยัน" || deleteDorm.rooms[i].booking.status == "รอการโอน") {
+            error = new Error("Some booking is in progress")
+            error.status = 403
+            throw error
+          }
+          bookingIdList.push(deleteDorm.rooms[i].booking.bookingId)
+          try {
+            if (fs.existsSync(deleteDorm.rooms[i].booking.moneySlip)) {
+              fs.unlinkSync(deleteDorm.rooms[i].booking.moneySlip)
+            }
+          } catch (err) {
+            continue;
+          }
+        }
+
+        await booking.destroy({ where: { bookingId: bookingIdList }, transaction: t })
       }
       if (deleteDorm.bankAccounts.length == 0 || deleteDorm.bankAccounts.length == undefined) {
         throw new Error('bankAccount Not Found')
@@ -450,6 +487,8 @@ router.delete('/:dormId', async (req, res, next) => {
         await deleteDorm.removeRoomTypes(deleteDorm.roomTypes[i], { transaction: t })
         await deleteDorm.roomTypes[i].destroy({ transaction: t })
       }
+
+
       await deleteDorm.destroy({ transaction: t })
     })
     res.sendStatus(200)
@@ -467,8 +506,8 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
   try {
     await sequelize.transaction(async (t) => {
       //Check for userAccount
-      let owner = await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
-        if (findUserAccount.role != "Owner") {
+      let owner = await userAccount.findOne({ where: { userId: req.userId }, include: [dorm] }).then(findUserAccount => {
+        if (findUserAccount.role != "Owner" || findUserAccount.dorm.ownerId != req.userId) {
           error = new Error('This account cannot access')
           error.status = 403
           throw error
@@ -560,13 +599,15 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
       //Edit Room
       if (editData.room != null || editData.room != undefined) {
         for (let i in editData.room) {
-          await booking.findAll({ where: { roomId: editData.room[i].roomId } }, { transaction: t }).then(findBooking => {
-            for (let i in findBooking) {
-              if (findBooking[i].status == "รอการยืนยัน" || findBooking[i].status == "รอการโอน") {
-                notEditRoom.push(editData.room[i])
+          if (editData.room[i].roomId) {
+            await booking.findAll({ where: { roomId: editData.room[i].roomId } }, { transaction: t }).then(findBooking => {
+              for (let i in findBooking) {
+                if (findBooking[i].status == "รอการยืนยัน" || findBooking[i].status == "รอการโอน") {
+                  notEditRoom.push(editData.room[i])
+                }
               }
-            }
-          })
+            })
+          }
         }
         let editRoom = _.differenceBy(editData.room, notEditRoom, 'roomId');
         await room.bulkCreate(editRoom, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
@@ -649,7 +690,6 @@ router.post('/search', upload, async (req, res, next) => {
       }
     }
     else if (searchInputKeyword && !searchAddressKeyword) {
-      console.log("I AM HERE")
       whereClause = {
         [Op.or]: [
           { name: { [Op.substring]: searchInputKeyword } },

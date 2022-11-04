@@ -6,7 +6,6 @@ const path = require('path');
 const db = require('../db/index');
 const multer = require('../middleware/multer')
 const jwt = require('../middleware/jwt');
-const { result } = require('lodash');
 const upload = multer.upload
 const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType } = db;
 var mime = {
@@ -29,9 +28,29 @@ var transporter = nodemailer.createTransport({
     }
 });
 
-router.get('/image/:bookingId', async (req, res, next) => {
+router.get('/image/:bookingId', [jwt.authenticateToken], async (req, res, next) => {
     try {
-        let imgPath = await booking.findOne({ where: { bookingId: req.params.bookingId } })
+        let imgPath = await booking.findOne({ where: { bookingId: req.params.bookingId }, include: [{ model: bankAccount, include: [dorm] }] })
+        await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+            if (findUserAccount.role == "Customer") {
+                if (imgPath.userId != findUserAccount.userId) {
+                    error = new Error('Cannot get image for you role')
+                    error.status = 403
+                    throw error
+                }
+            } else if (findUserAccount.role == "Owner") {
+                if (imgPath.bankAccount.dorm.ownerId != findUserAccount.userId) {
+                    error = new Error('Cannot get image for you role')
+                    error.status = 403
+                    throw error
+                }
+            }
+            else {
+                error = new Error('Cannot get image for you role')
+                error.status = 403
+                throw error
+            }
+        })
         if (imgPath != null) {
             var type = mime[path.extname(imgPath.moneySlip).slice(1)] || 'image/png';
             var s = fs.createReadStream(path.join(__dirname, '../', imgPath.moneySlip));
@@ -102,9 +121,14 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
                 }
             })
             //Check for booking
-            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }, userAccount] })
+            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [room, userAccount,{model: bankAccount, include:[dorm]}] })
             if (result == undefined || result == null) {
                 error = new Error("Cannot find you booking")
+                error.status = 403
+                throw error
+            }
+            if(result.bankAccount.dorm.ownerId != req.userId){
+                error = new Error("This account cannot access")
                 error.status = 403
                 throw error
             }
@@ -122,7 +146,7 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
                 from: 'dormHub.work@gmail.com',
                 to: result.userAccount.email,
                 subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
-                text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.status}' เป็น '${data.status}'`
+                text: `การจองห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.status}' เป็น '${data.status}'`
             };
             transporter.sendMail(mailOptions, function (error, info) {
                 if (error) {
@@ -301,7 +325,7 @@ router.put('/update', [upload, jwt.authenticateToken], async (req, res, next) =>
                     from: 'dormHub.work@gmail.com',
                     to: result.room.dorm.userAccount.email,
                     subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
-                    text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.room.status}' เป็น '${data.status}'`
+                    text: `การจองห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.status}' เป็น '${data.status}'`
                 };
             }
             transporter.sendMail(mailOptions, function (error, info) {
