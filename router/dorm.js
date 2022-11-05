@@ -507,10 +507,19 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
     await sequelize.transaction(async (t) => {
       //Check for userAccount
       let owner = await userAccount.findOne({ where: { userId: req.userId }, include: [dorm] }).then(findUserAccount => {
-        if (findUserAccount.role != "Owner" || findUserAccount.dorm.ownerId != req.userId) {
+        if (findUserAccount.role != "Owner") {
           error = new Error('This account cannot access')
           error.status = 403
           throw error
+        }
+        for (let i in findUserAccount.dorm) {
+          if (findUserAccount.dorm[i].dormId == editData.dormId) {
+            if (findUserAccount.dorm[i].ownerId != req.userId) {
+              error = new Error('This account cannot access')
+              error.status = 403
+              throw error
+            }
+          }
         }
       })
       if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
@@ -636,7 +645,9 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
       }
       res.json({ message: message }).status(200)
     }
-    res.sendStatus(200)
+    else{
+      res.sendStatus(200)
+    }
   } catch (err) {
     console.log(err)
     next(err)
