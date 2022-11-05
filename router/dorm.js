@@ -128,7 +128,16 @@ router.get('/', async (req, res, next) => {
       error.status = 500
       throw error
     } else {
-      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
+      for (let i in result.rows) {
+        let freeRoomCount = 0
+        for (let j in result.rows[i].rooms) {
+          if (result.rows[i].rooms[j].status == "ว่าง") {
+            freeRoomCount++
+          }
+        }
+        result.rows[i].freeRoomCount = freeRoomCount
+      }
+      res.status(200).json({ results: _.orderBy(result.rows, item => item.freeRoomCount, ["desc"]), totalPage: Math.ceil(result.count / limit) })
     }
   } catch (err) {
     next(err)
@@ -645,7 +654,7 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
       }
       res.json({ message: message }).status(200)
     }
-    else{
+    else {
       res.sendStatus(200)
     }
   } catch (err) {
@@ -677,6 +686,17 @@ router.post('/search', upload, async (req, res, next) => {
     }
     let searchInputKeyword;
     let searchAddressKeyword;
+    let advanceFilter;
+    if (findData.ElectricPrice || findData.WaterPricelet || findData.deposit || findData.price || findData.area || findData.RoomTypeDes) {
+      advanceFilter = {
+        searchElectricPrice: findData.ElectricPrice,
+        searchWaterPrice: findData.WaterPricelet,
+        searchDeposit: findData.deposit,
+        searchPrice: findData.price,
+        searchArea: findData.area,
+        searchRoomTypeDes: findData.RoomTypeDes,
+      }
+    }
     let whereClause;
     if (findData.search) {
       searchInputKeyword = findData.search
@@ -692,15 +712,20 @@ router.post('/search', upload, async (req, res, next) => {
       searchAddressKeyword = findData.subDistrict
     }
 
-    if ((searchInputKeyword && searchAddressKeyword)) {
+    if ((searchInputKeyword && searchAddressKeyword && !advanceFilter)) {
       whereClause = {
         [Op.and]: [
-          { name: { [Op.substring]: searchInputKeyword } },
+          {
+            [Op.or]: [
+              { name: { [Op.substring]: searchInputKeyword } },
+              { description: { [Op.substring]: searchInputKeyword } }
+            ]
+          },
           { address: { [Op.substring]: searchAddressKeyword } }
         ],
       }
     }
-    else if (searchInputKeyword && !searchAddressKeyword) {
+    else if (searchInputKeyword && !searchAddressKeyword && !advanceFilter) {
       whereClause = {
         [Op.or]: [
           { name: { [Op.substring]: searchInputKeyword } },
@@ -708,7 +733,7 @@ router.post('/search', upload, async (req, res, next) => {
         ],
       }
     }
-    else {
+    else if(!searchInputKeyword && searchAddressKeyword && !advanceFilter) {
       whereClause =
         { address: { [Op.substring]: searchAddressKeyword } }
     }
@@ -726,7 +751,16 @@ router.post('/search', upload, async (req, res, next) => {
       error.status = 500
       throw error
     } else {
-      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
+      for (let i in result.rows) {
+        let freeRoomCount = 0
+        for (let j in result.rows[i].rooms) {
+          if (result.rows[i].rooms[j].status == "ว่าง") {
+            freeRoomCount++
+          }
+        }
+        result.rows[i].freeRoomCount = freeRoomCount
+      }
+      res.status(200).json({ results: _.orderBy(result.rows, item => item.freeRoomCount, ["desc"]), totalPage: Math.ceil(result.count / limit) })
     }
   } catch (err) {
     console.log(err)
