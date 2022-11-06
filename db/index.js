@@ -194,10 +194,19 @@ db.dorm.belongsToMany(db.roomType,{
   foreignKey: 'dormId',
   otherKey: 'roomTypeId',
 })
+
+db.dormHasRoomType.belongsTo(db.dorm,{
+  foreignKey : 'dormId'
+})
+
 db.roomType.belongsToMany(db.dorm,{
   through: db.dormHasRoomType,
   foreignKey: 'roomTypeId',
   otherKey: 'dormId',
+})
+
+db.dormHasRoomType.belongsTo(db.roomType,{
+  foreignKey : 'roomTypeId'
 })
 
 module.exports = db;
