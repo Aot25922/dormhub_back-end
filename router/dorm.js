@@ -724,8 +724,6 @@ router.post('/search', upload, async (req, res, next) => {
       findData.waterPerUnit = _.each(findData.waterPerUnit, item => item = _.parseInt(item))
       whereClause['$dorm.waterPerUnit$'] = { [Op.between]: findData.waterPerUnit }
     }
-
-    let roomWhereClause = {}
     //Filter by room price
     if (findData.price) {
       findData.price = _.each(findData.price, item => item = _.parseInt(item))
@@ -739,7 +737,6 @@ router.post('/search', upload, async (req, res, next) => {
     }
 
     //Filter by room area
-
     if (findData.area) {
       findData.area = _.each(findData.area, item => item = _.parseInt(item))
       whereClause.area = { [Op.between]: findData.area }
@@ -750,22 +747,21 @@ router.post('/search', upload, async (req, res, next) => {
       whereClause['$roomType.description$'] = { [Op.substring]: findData.roomTypeDes }
     }
 
-
     let result = await dormHasRoomType.findAll({
-      limit: limit,
-      offset: page * limit, where: whereClause, include: [{ model: dorm, include: [{ model: roomType, where: roomWhereClause }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }] }, roomType]
+      where: whereClause,
+      include: [{ model: dorm,as: 'dorm', include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }] }, roomType],
     })
     if (!result) {
       error = new Error("Cannot get any dorm")
       error.status = 500
       throw error
-    } else {
-
     }
+    result = result.slice(page * limit,limit) 
     let dormList = []
     for (let i in result) {
       dormList.push(result[i].dorm)
     }
+    let totalPage = Math.ceil(dormList.length / limit)
     dormList = _.uniqBy(dormList, 'dormId');
     for (let i in dormList) {
       let freeRoomCount = 0
@@ -776,7 +772,7 @@ router.post('/search', upload, async (req, res, next) => {
       }
       dormList[i].freeRoomCount = freeRoomCount
     }
-    res.status(200).json({ results: _.orderBy(dormList, item => item.freeRoomCount, ["desc"]), totalPage: Math.ceil(dormList.length / limit) })
+    res.status(200).json({ results: _.orderBy(dormList, item => item.freeRoomCount, ["desc"]), totalPage: totalPage })
 
   } catch (err) {
     console.log(err)
