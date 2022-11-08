@@ -687,92 +687,95 @@ router.post('/search', upload, async (req, res, next) => {
 
     //Init Where clause
     let whereClause = {};
+    let dormWhereClause = {};
     //Input search name and description
-    if (findData.search) {
-      whereClause = {
+    if (findData.search != null) {
+      dormWhereClause = {
         [Op.or]: [
-          { '$dorm.name$': { [Op.substring]: findData.search } },
-          { '$dorm.description$': { [Op.substring]: findData.search } },
+          { name: { [Op.substring]: findData.search } },
+          { description: { [Op.substring]: findData.search } },
         ]
       }
     }
 
     //Filter by address
     let searchAddressKeyword
-    if (findData.subDistrict) {
+    if (findData.subDistrict != null) {
       searchAddressKeyword = findData.subDistrict
-    } else if (findData.district) {
+    } else if (findData.district != null) {
       searchAddressKeyword = findData.district
-    } else if (findData.province) {
+    } else if (findData.province != null) {
       searchAddressKeyword = findData.province
-    } else if (findData.region) {
+    } else if (findData.region != null) {
       searchAddressKeyword = findData.region
     }
-    if (searchAddressKeyword) {
-      console.log(searchAddressKeyword)
-      whereClause['$dorm.address$'] = { [Op.substring]: searchAddressKeyword }
+    if (searchAddressKeyword != null) {
+      dormWhereClause.address = { [Op.substring]: searchAddressKeyword }
     }
 
     //Filter by elecPerUnit
-    if (findData.elecPerUnit) {
+    if (findData.elecPerUnit != null) {
       findData.elecPerUnit = _.each(findData.elecPerUnit, item => item = _.parseInt(item))
-      whereClause['$dorm.elecPerUnit$'] = { [Op.between]: findData.elecPerUnit }
+      dormWhereClause.elecPerUnit = { [Op.between]: findData.elecPerUnit }
     }
 
     //Filter by waterPerUnit
-    if (findData.waterPerUnit) {
+    if (findData.waterPerUnit != null) {
       findData.waterPerUnit = _.each(findData.waterPerUnit, item => item = _.parseInt(item))
-      whereClause['$dorm.waterPerUnit$'] = { [Op.between]: findData.waterPerUnit }
+      dormWhereClause.waterPerUnit = { [Op.between]: findData.waterPerUnit }
     }
     //Filter by room price
-    if (findData.price) {
+    if (findData.price != null) {
       findData.price = _.each(findData.price, item => item = _.parseInt(item))
       whereClause.price = { [Op.between]: findData.price }
     }
 
     //Filter by room deposit
-    if (findData.deposit) {
+    if (findData.deposit != null) {
       findData.deposit = _.each(findData.deposit, item => item = _.parseInt(item))
       whereClause.deposit = { [Op.between]: findData.deposit }
     }
 
     //Filter by room area
-    if (findData.area) {
+    if (findData.area != null) {
       findData.area = _.each(findData.area, item => item = _.parseInt(item))
       whereClause.area = { [Op.between]: findData.area }
     }
 
-    //Filter by roomType des
-    if (findData.roomTypeDes) {
-      whereClause['$roomType.description$'] = { [Op.substring]: findData.roomTypeDes }
+    // Filter by roomType des
+    let roomTypeWhereClause = {}
+    if (findData.roomTypeDes != null) {
+      roomTypeWhereClause.description = { [Op.substring]: findData.roomTypeDes }
     }
-
-    let result = await dormHasRoomType.findAll({
-      where: whereClause,
-      include: [{ model: dorm,as: 'dorm', include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }] }, roomType],
+    // let result = await dormHasRoomType.findAndCountAll({
+    //   limit: limit,
+    //   offset: page * limit,
+    //   distinct: true,
+    //   where: whereClause,
+    //   include: [{ model: dorm, where: dormWhereClause, as: 'dorm', include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }] }, { model: roomType, where: roomTypeWhereClause }],
+    // })
+    let result = await dorm.findAndCountAll({
+        limit: limit,
+      offset: page * limit,
+      distinct: true,
+      where:dormWhereClause,
+      include: [room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } } , { model: roomType, where: roomTypeWhereClause,through:{where: whereClause} }]
     })
     if (!result) {
       error = new Error("Cannot get any dorm")
       error.status = 500
       throw error
     }
-    result = result.slice(page * limit,limit) 
-    let dormList = []
-    for (let i in result) {
-      dormList.push(result[i].dorm)
-    }
-    let totalPage = Math.ceil(dormList.length / limit)
-    dormList = _.uniqBy(dormList, 'dormId');
-    for (let i in dormList) {
+    for (let i in result.rows) {
       let freeRoomCount = 0
-      for (let j in dormList[i].rooms) {
-        if (dormList[i].rooms[j].status == "ว่าง") {
+      for (let j in result.rows[i].rooms) {
+        if (result.rows[i].rooms[j].status == "ว่าง") {
           freeRoomCount++
         }
       }
-      dormList[i].freeRoomCount = freeRoomCount
+      result.rows[i].freeRoomCount = freeRoomCount
     }
-    res.status(200).json({ results: _.orderBy(dormList, item => item.freeRoomCount, ["desc"]), totalPage: totalPage })
+    res.status(200).json({ results: _.orderBy(result.rows, item => item.freeRoomCount, ["desc"]), totalPage: Math.ceil(result.count / limit) })
 
   } catch (err) {
     console.log(err)
