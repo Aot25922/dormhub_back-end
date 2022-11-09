@@ -9,7 +9,7 @@ const multer = require('../middleware/multer')
 const func = require('../function/function');
 const { booking } = require('../db/index');
 const upload = multer.upload
-const { subDistricts, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
+const { subDistricts, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank, Sequelize } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -116,29 +116,23 @@ router.get('/', async (req, res, next) => {
       limit: limit,
       offset: page * limit,
       distinct: true,
+      attributes: {
+        include: [[Sequelize.literal('(SELECT COUNT(*) FROM room WHERE dorm.dormId = room.dormId AND room.status="ว่าง")'), 'roomCount']]
+      },
       include: [
         { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, {
           model: userAccount,
           attributes: ['fname', 'lname', 'email', 'phone']
         }, media, { model: bankAccount, include: { model: bank } }
-      ]
+      ],
+      order:[[Sequelize.literal('roomCount'), "DESC"]]
     })
     if (!result || result.length == 0) {
       error = new Error("Cannot get all dorm")
       error.status = 500
       throw error
-    } else {
-      for (let i in result.rows) {
-        let freeRoomCount = 0
-        for (let j in result.rows[i].rooms) {
-          if (result.rows[i].rooms[j].status == "ว่าง") {
-            freeRoomCount++
-          }
-        }
-        result.rows[i].freeRoomCount = freeRoomCount
-      }
-      res.status(200).json({ results: _.orderBy(result.rows, item => item.freeRoomCount, ["desc"]), totalPage: Math.ceil(result.count / limit) })
-    }
+    } 
+      res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
   } catch (err) {
     next(err)
   }
@@ -685,6 +679,40 @@ router.post('/search', upload, async (req, res, next) => {
       throw error
     }
 
+    console.log(findData)
+    //Order by
+    let orderBy = []
+    let attributeFororderBy = []
+    if (findData.orderBy) {
+      if (findData.orderBy.name) {
+        orderBy.push(['name', findData.orderBy.name])
+      }
+      if (findData.orderBy.address) {
+        orderBy.push(['address', findData.orderBy.address])
+      }
+      if (findData.orderBy.elecPerUnit) {
+        orderBy.push(['elecPerUnit', findData.orderBy.elecPerUnit])
+      }
+      if (findData.orderBy.waterPerUnit) {
+        orderBy.push(['waterPerUnit', findData.orderBy.waterPerUnit])
+      }
+      if (findData.orderBy.freeRoom) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT COUNT(*) FROM room WHERE dorm.dormId = room.dormId AND room.status="ว่าง")'), 'roomCount'])
+        orderBy.push([Sequelize.literal('roomCount'), findData.orderBy.freeRoom])
+      }
+      if (findData.orderBy.price) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT MIN(dormHasRoomType.price) FROM dormHasRoomType WHERE dorm.dormId = dormHasRoomType.dormId )'), 'minPrice'])
+        orderBy.push([Sequelize.literal('minPrice'), findData.orderBy.price])
+      }
+      if (findData.orderBy.deposit) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT MIN(dormHasRoomType.deposit) FROM dormHasRoomType WHERE dorm.dormId = dormHasRoomType.dormId )'), 'minDeposit'])
+        orderBy.push([Sequelize.literal('minDeposit'), findData.orderBy.deposit])
+      }
+      if (findData.orderBy.area) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT MIN(dormHasRoomType.area) FROM dormHasRoomType WHERE dorm.dormId = dormHasRoomType.dormId )'), 'minArea'])
+        orderBy.push([Sequelize.literal('minArea'), findData.orderBy.area])
+      }
+    }
     //Init Where clause
     let whereClause = {};
     let dormWhereClause = {};
@@ -747,35 +775,23 @@ router.post('/search', upload, async (req, res, next) => {
     if (findData.roomTypeDes != null) {
       roomTypeWhereClause.description = { [Op.substring]: findData.roomTypeDes }
     }
-    // let result = await dormHasRoomType.findAndCountAll({
-    //   limit: limit,
-    //   offset: page * limit,
-    //   distinct: true,
-    //   where: whereClause,
-    //   include: [{ model: dorm, where: dormWhereClause, as: 'dorm', include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }] }, { model: roomType, where: roomTypeWhereClause }],
-    // })
     let result = await dorm.findAndCountAll({
-        limit: limit,
+      limit: limit,
       offset: page * limit,
       distinct: true,
-      where:dormWhereClause,
-      include: [room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } } , { model: roomType, where: roomTypeWhereClause,through:{where: whereClause} }]
+      where: dormWhereClause,
+      attributes: {
+        include: attributeFororderBy
+      },
+      include: [room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }, { model: roomType, where: roomTypeWhereClause, through: { model: dormHasRoomType, where: whereClause } }],
+      order: orderBy
     })
     if (!result) {
       error = new Error("Cannot get any dorm")
       error.status = 500
       throw error
     }
-    for (let i in result.rows) {
-      let freeRoomCount = 0
-      for (let j in result.rows[i].rooms) {
-        if (result.rows[i].rooms[j].status == "ว่าง") {
-          freeRoomCount++
-        }
-      }
-      result.rows[i].freeRoomCount = freeRoomCount
-    }
-    res.status(200).json({ results: _.orderBy(result.rows, item => item.freeRoomCount, ["desc"]), totalPage: Math.ceil(result.count / limit) })
+    res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
 
   } catch (err) {
     console.log(err)
