@@ -23,19 +23,9 @@ module.exports = (sequelize,DataTypes) => {
         field: 'closeTime'
       },
       description: {
-        type: DataTypes.STRING(200),
+        type: DataTypes.STRING(1000),
         allowNull: true,
         field: 'description'
-      },
-      rating: {
-        type: DataTypes.DECIMAL(3, 2),
-        allowNull: false,
-        field: 'rating'
-      },
-      acceptPercent: {
-        type: DataTypes.DECIMAL(5, 2),
-        allowNull: false,
-        field: 'acceptPercent'
       },
       elecPerUnit: {
         type: DataTypes.DECIMAL(3, 2),
@@ -46,7 +36,11 @@ module.exports = (sequelize,DataTypes) => {
         type: DataTypes.DECIMAL(3, 2),
         allowNull: false,
         field: 'waterPerUnit'
-      }
+      },
+          address: {
+          type: DataTypes.STRING(200),
+              field: 'address'
+          },
     }, {
       tableName: 'dorm'
     }

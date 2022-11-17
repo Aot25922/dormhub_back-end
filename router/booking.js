@@ -1,10 +1,11 @@
 var express = require('express');
+var nodemailer = require('nodemailer');
 var router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const db = require('../db/index');
 const multer = require('../middleware/multer')
-const jwt = require('../middleware/jwt')
+const jwt = require('../middleware/jwt');
 const upload = multer.upload
 const { room, booking, userAccount, bankAccount, sequelize, Op, dorm, roomType } = db;
 var mime = {
@@ -18,9 +19,38 @@ router.use((req, res, next) => {
     next()
 })
 
-router.get('/image/:bookingId', async (req, res, next) => {
+//nodemailer
+var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'dormhub.work@gmail.com',
+        pass: 'tjzactygnkmjepvl'
+    }
+});
+
+router.get('/image/:bookingId', [jwt.authenticateToken], async (req, res, next) => {
     try {
-        let imgPath = await booking.findOne({ where: { bookingId: req.params.bookingId } })
+        let imgPath = await booking.findOne({ where: { bookingId: req.params.bookingId }, include: [{ model: bankAccount, include: [dorm] }] })
+        await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+            if (findUserAccount.role == "Customer") {
+                if (imgPath.userId != findUserAccount.userId) {
+                    error = new Error('Cannot get image for you role')
+                    error.status = 403
+                    throw error
+                }
+            } else if (findUserAccount.role == "Owner") {
+                if (imgPath.bankAccount.dorm.ownerId != findUserAccount.userId) {
+                    error = new Error('Cannot get image for you role')
+                    error.status = 403
+                    throw error
+                }
+            }
+            else {
+                error = new Error('Cannot get image for you role')
+                error.status = 403
+                throw error
+            }
+        })
         if (imgPath != null) {
             var type = mime[path.extname(imgPath.moneySlip).slice(1)] || 'image/png';
             var s = fs.createReadStream(path.join(__dirname, '../', imgPath.moneySlip));
@@ -75,6 +105,13 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
     let data = JSON.parse(req.body.data)
     try {
         await sequelize.transaction(async (t) => {
+            //Check Status
+            const statusList = ["ยืนยันการโอน", "รอการโอน", "ยกเลิก"]
+            if (!statusList.includes(data.status)) {
+                error = new Error('This status not found')
+                error.status = 403
+                throw error
+            }
             //Check for userAccount
             await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
                 if (findUserAccount == undefined || findUserAccount.role != "Owner") {
@@ -84,9 +121,14 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
                 }
             })
             //Check for booking
-            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, as: 'room', where: { roomId: data.roomId }, include: { model: roomType, where: { roomTypeId: data.roomTypeId }, include: { model: dorm, where: { dormId: data.dormId } } } }] })
+            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [room, userAccount,{model: bankAccount, include:[dorm]}] })
             if (result == undefined || result == null) {
                 error = new Error("Cannot find you booking")
+                error.status = 403
+                throw error
+            }
+            if(result.bankAccount.dorm.ownerId != req.userId){
+                error = new Error("This account cannot access")
                 error.status = 403
                 throw error
             }
@@ -100,7 +142,21 @@ router.put('/owner/update', [upload, jwt.authenticateToken], async (req, res, ne
                     status: "ว่าง"
                 }, { where: { roomId: data.roomId }, transaction: t })
             }
+            let mailOptions = {
+                from: 'dormHub.work@gmail.com',
+                to: result.userAccount.email,
+                subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
+                text: `การจองห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.status}' เป็น '${data.status}'`
+            };
+            transporter.sendMail(mailOptions, function (error, info) {
+                if (error) {
+                    console.log(error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+            })
         })
+
         res.sendStatus(200)
     } catch (err) {
         console.log(err)
@@ -134,7 +190,6 @@ router.get('/', [jwt.authenticateToken], async (req, res, next) => {
 })
 router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
     let data = JSON.parse(req.body.data)
-    let files = req.files
     try {
         await sequelize.transaction(async (t) => {
             //Check for booking
@@ -145,11 +200,13 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
                     throw error
                 }
             })
-            await booking.findOne({ where: { roomId: data.roomId } }, { transaction: t }).then(findBooking => {
-                if (findBooking != undefined || findBooking != null) {
-                    error = new Error("This room already booking")
-                    error.status = 403
-                    throw error
+            await booking.findAll({ where: { roomId: data.roomId } }, { transaction: t }).then(findBooking => {
+                for (let i in findBooking) {
+                    if (findBooking[i].status == "รอการยืนยัน") {
+                        error = new Error("This room already booking")
+                        error.status = 403
+                        throw error
+                    }
                 }
             })
 
@@ -162,14 +219,20 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
                     throw error
                 }
             })
+
             //Check for bankAccount
             await bankAccount.findAll({ where: { dormId: data.dormId } }, { transaction: t }).then(findBankAccount => {
-                if (findBankAccount == undefined || findBankAccount == null) {
+                let checkBankAccount = []
+                for (let i in findBankAccount) {
+                    checkBankAccount.push(findBankAccount[i].bankAccId)
+                }
+                if (!checkBankAccount.includes(data.bankAccId)) {
                     error = new Error("This bankAccount not right")
                     error.status = 403
                     throw error
                 }
             })
+
             //Check for room
             await room.findOne({ where: { [Op.and]: [{ roomId: data.roomId }, { dormId: data.dormId }] } }, { transaction: t }).then(findRoom => {
                 if (findRoom == undefined || findRoom == null) {
@@ -185,7 +248,6 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
                 endDate: data.endDate,
                 status: "รอการยืนยัน",
                 description: data.description,
-                moneySlip: files[0].path,
                 userId: req.userId,
                 bankAccId: data.bankAccId,
                 roomId: data.roomId
@@ -199,9 +261,87 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
         res.sendStatus(200)
     } catch (err) {
         console.log(err)
+        next(err)
+    }
+})
+
+router.put('/update', [upload, jwt.authenticateToken], async (req, res, next) => {
+    let data = JSON.parse(req.body.data)
+    let files = req.files
+    try {
+        await sequelize.transaction(async (t) => {
+            //Check for userAccount
+            let findUserAccount = await userAccount.findOne({ where: { userId: req.userId } })
+            if (findUserAccount == undefined || findUserAccount.role != "Customer") {
+                error = new Error('This account cannot access')
+                error.status = 403
+                throw error
+            }
+            //Check for booking
+            let result = await booking.findOne({ where: { bookingId: data.bookingId }, include: [{ model: room, include: [{ model: dorm, include: [userAccount] }] }] })
+            if (result == undefined || result == null) {
+                error = new Error("Cannot find you booking")
+                error.status = 403
+                throw error
+            }
+            if (data.status == "ยืนยันการโอน") {
+                if (result.moneySlip && files[0]) {
+                    if (fs.existsSync(result.moneySlip)) {
+                        fs.unlinkSync(result.moneySlip)
+                    }
+                }
+                if (!files[0]) {
+                    error = new Error("No money slip")
+                    error.status = 403
+                    throw error
+                }
+                await booking.update({
+                    status: data.status,
+                    moneySlip: files[0].path,
+                }, {
+                    where: { bookingId: data.bookingId }, transaction: t
+                })
+            } else if (data.status == "ยกเลิก") {
+                await booking.update({
+                    status: data.status
+                }, {
+                    where: { bookingId: data.bookingId }, transaction: t
+                })
+                await room.update({
+                    status: "ว่าง"
+                }, { where: { roomId: data.roomId }, transaction: t })
+            }
+            let mailOptions
+            if (result.status == "ยืนยันการโอน") {
+                mailOptions = {
+                    from: 'dormHub.work@gmail.com',
+                    to: result.room.dorm.userAccount.email,
+                    subject: 'ใบสลิปการจ่ายค่าจองห้องพักมีการเปลี่ยนเเปลง',
+                    text: `ห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนใบสลิปการจ่ายค่าจองห้องพักของผู้ใช้ ชื่อ : ${findUserAccount.fname} ${findUserAccount.lname} e-mail : ${findUserAccount.email} เบอร์โทร : ${findUserAccount.phone}`
+                };
+            }
+            else {
+                mailOptions = {
+                    from: 'dormHub.work@gmail.com',
+                    to: result.room.dorm.userAccount.email,
+                    subject: 'สถานะการจองห้องพักของคุณที่การเปลี่ยนเเปลง',
+                    text: `การจองห้องพักหมายเลข ${result.room.roomNum} มีการเปลี่ยนสถานะจาก '${result.status}' เป็น '${data.status}'`
+                };
+            }
+            transporter.sendMail(mailOptions, function (error, info) {
+                if (error) {
+                    console.log(error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+            })
+        })
+        res.sendStatus(200)
+    } catch (err) {
         files.forEach(async (file) => {
             fs.unlinkSync(file.path)
         })
+        console.log(err)
         next(err)
     }
 })

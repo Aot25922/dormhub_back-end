@@ -13,12 +13,12 @@ module.exports = (sequelize, DataTypes) => {
                 field: 'payDate'
             },
             startDate: {
-                type: DataTypes.DATE,
+                type: DataTypes.STRING(50),
                 allowNull: false,
                 field: 'startDate'
             },
             endDate: {
-                type: DataTypes.DATE,
+                type: DataTypes.STRING(50),
                 allowNull: false,
                 field: 'endDate'
             },

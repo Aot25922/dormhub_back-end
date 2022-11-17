@@ -9,7 +9,7 @@ const multer = require('../middleware/multer')
 const func = require('../function/function');
 const { booking } = require('../db/index');
 const upload = multer.upload
-const { subDistricts, address, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank } = db;
+const { subDistricts, provinces, geographies, userAccount, room, roomType, dorm, media, districts, dormHasRoomType, Op, sequelize, bankAccount, bank, Sequelize } = db;
 var mime = {
   jpg: 'image/jpeg',
   png: 'image/png',
@@ -116,35 +116,23 @@ router.get('/', async (req, res, next) => {
       limit: limit,
       offset: page * limit,
       distinct: true,
-      include: [{
-        model: address,
-        attributes: ['number', 'street', 'alley'],
-        include: {
-          model: subDistricts,
-          attributes: ['name_th', 'zip_code'],
-          include: {
-            model: districts,
-            attributes: ['name_th'],
-            include: {
-              model: provinces,
-              attributes: ['name_th', 'img'],
-              include: {
-                model: geographies,
-                attributes: ['name']
-              }
-            }
-          }
-        }
-      }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
-      ]
+      attributes: {
+        include: [[Sequelize.literal('(SELECT COUNT(*) FROM room WHERE dorm.dormId = room.dormId AND room.status="ว่าง")'), 'roomCount']]
+      },
+      include: [
+        { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, {
+          model: userAccount,
+          attributes: ['fname', 'lname', 'email', 'phone']
+        }, media, { model: bankAccount, include: { model: bank } }
+      ],
+      order:[[Sequelize.literal('roomCount'), "DESC"]]
     })
     if (!result || result.length == 0) {
       error = new Error("Cannot get all dorm")
       error.status = 500
       throw error
-    } else {
+    } 
       res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
-    }
   } catch (err) {
     next(err)
   }
@@ -156,7 +144,6 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
     const pageasNumber = parseInt(req.query.page)
     const limitasNumber = parseInt(req.query.limit)
     const dormIdList = req.query.dormIdList
-    console.log(dormIdList)
 
     let page = 0
     if (!isNaN(pageasNumber) && pageasNumber > 0) {
@@ -188,26 +175,7 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
           [Op.in]: dormIdList,
         }
       },
-      include: [{
-        model: address,
-        attributes: ['number', 'street', 'alley'],
-        include: {
-          model: subDistricts,
-          attributes: ['name_th', 'zip_code'],
-          include: {
-            model: districts,
-            attributes: ['name_th'],
-            include: {
-              model: provinces,
-              attributes: ['name_th', 'img'],
-              include: {
-                model: geographies,
-                attributes: ['name']
-              }
-            }
-          }
-        }
-      }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+      include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
       ]
     })
     if (!result || result.length == 0) {
@@ -215,6 +183,11 @@ router.get('/owner', [jwt.authenticateToken], async (req, res, next) => {
       error.status = 500
       throw error
     } else {
+      for (let i in result.rows) {
+        if (result.rows[i].ownerId != req.userId) {
+          result.rows.splice(i, 1)
+        }
+      }
       res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
     }
   } catch (err) {
@@ -228,26 +201,7 @@ router.get('/:dormId', async (req, res, next) => {
     if (!(isNaN(parseInt(req.params.dormId)))) {
       result = await dorm.findOne({
         where: { dormId: req.params.dormId },
-        include: [{
-          model: address,
-          attributes: ['number', 'street', 'alley'],
-          include: {
-            model: subDistricts,
-            attributes: ['name_th', 'zip_code'],
-            include: {
-              model: districts,
-              attributes: ['name_th'],
-              include: {
-                model: provinces,
-                attributes: ['name_th', 'img'],
-                include: {
-                  model: geographies,
-                  attributes: ['name']
-                }
-              }
-            }
-          }
-        }, roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
+        include: [roomType, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
         ]
       })
     } else {
@@ -286,64 +240,41 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
           throw error
         }
       })
+
       //Check for existed dorm
-      await dorm.findAll({ include: [address] }).then(findDorm => {
+      await dorm.findAll().then(findDorm => {
         for (let i in findDorm) {
           if (findDorm[i].name == newData.dorm.name) {
             error = new Error('Dorm name is existed')
             error.status = 403
             throw error
           }
-          if (findDorm[i].address.number == newData.address.number && findDorm[i].address.street == newData.address.street && findDorm[i].address.alley == newData.address.allay) {
-            error = new Error('address is existed')
-            error.status = 403
-            throw error
-          }
         }
       })
-      //Create new address
-      let findsubDistrictId = await subDistricts.findOne({
-        attributes: ['subDistrictsId'], where: { [Op.and]: { zip_code: newData.address.zipCodeId, name_th: newData.address.subDistrict } }
-      })
-      if (findsubDistrictId == null || findsubDistrictId == undefined) {
-        error = new Error('address is not found')
-        error.status = 403
-        throw error
-      }
-      await address.create({
-        number: newData.address.number,
-        street: newData.address.street,
-        alley: newData.address.alley,
-        subDistrictId: findsubDistrictId.subDistrictsId
-      }, { transaction: t }).then(async new_address => {
-        if (new_address == null || new_address == undefined) {
-          error = new Error('Insert address fail')
+
+      //Create new dorm
+      await dorm.create({
+        name: newData.dorm.name,
+        openTime: newData.dorm.openTime,
+        closeTime: newData.dorm.closeTime,
+        description: newData.dorm.description,
+        rating: newData.dorm.rating,
+        acceptPercent: newData.dorm.acceptPercent,
+        elecPerUnit: newData.dorm.elecPerUnit,
+        waterPerUnit: newData.dorm.waterPerUnit,
+        address: newData.dorm.address,
+        ownerId: req.userId
+      }, { transaction: t }).then(new_dorm => {
+        if (new_dorm == null || new_dorm == undefined) {
+          error = new Error('Insert dorm fail')
           error.status = 500
           throw error
         } else {
-          //Create new dorm
-          await dorm.create({
-            name: newData.dorm.name,
-            openTime: newData.dorm.openTime,
-            closeTime: newData.dorm.closeTime,
-            description: newData.dorm.description,
-            rating: newData.dorm.rating,
-            acceptPercent: newData.dorm.acceptPercent,
-            elecPerUnit: newData.dorm.elecPerUnit,
-            waterPerUnit: newData.dorm.waterPerUnit,
-            addressId: new_address.addressId,
-            ownerId: req.userId
-          }, { transaction: t }).then(new_dorm => {
-            if (new_dorm == null || new_dorm == undefined) {
-              error = new Error('Insert dorm fail')
-              error.status = 500
-              throw error
-            } else {
-              new_dormId = new_dorm.dormId
-            }
-          })
+          new_dormId = new_dorm.dormId
         }
       })
+
+
       //Check for existed roomtype in request
       for (let i in newData.roomType) {
         let existRoomtype;
@@ -487,14 +418,45 @@ router.post('/register', [upload, jwt.authenticateToken], async (req, res, next)
 })
 
 //delete dorm by dormId
-router.delete('/:dormId', async (req, res, next) => {
+router.delete('/:dormId', [jwt.authenticateToken], async (req, res, next) => {
   id = req.params.dormId
   try {
     await sequelize.transaction(async (t) => {
+
       //Check for dorm
-      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [address, bankAccount, roomType, room, media] })
+      deleteDorm = await dorm.findOne({ where: { dormId: id }, include: [bankAccount, roomType, { model: room, include: [booking] }, media] })
       if (deleteDorm == null || deleteDorm == undefined) {
         throw new Error('Dorm Not Found')
+      }
+      if (!deleteDorm || deleteDorm.ownerId != req.userId) {
+        error = new Error('This account cannot access')
+        error.status = 403
+        throw error
+      }
+      if (deleteDorm.rooms.length == 0 || deleteDorm.rooms.length == undefined) {
+        throw new Error('rooms Not Found')
+      } else {
+        let bookingIdList = []
+        for (let i in deleteDorm.rooms) {
+          if (!deleteDorm.rooms[i].booking) {
+            continue
+          }
+          if (deleteDorm.rooms[i].booking.status == "รอการยืนยัน" || deleteDorm.rooms[i].booking.status == "รอการโอน") {
+            error = new Error("Some booking is in progress")
+            error.status = 403
+            throw error
+          }
+          bookingIdList.push(deleteDorm.rooms[i].booking.bookingId)
+          try {
+            if (fs.existsSync(deleteDorm.rooms[i].booking.moneySlip)) {
+              fs.unlinkSync(deleteDorm.rooms[i].booking.moneySlip)
+            }
+          } catch (err) {
+            continue;
+          }
+        }
+
+        await booking.destroy({ where: { bookingId: bookingIdList }, transaction: t })
       }
       if (deleteDorm.bankAccounts.length == 0 || deleteDorm.bankAccounts.length == undefined) {
         throw new Error('bankAccount Not Found')
@@ -528,8 +490,9 @@ router.delete('/:dormId', async (req, res, next) => {
         await deleteDorm.removeRoomTypes(deleteDorm.roomTypes[i], { transaction: t })
         await deleteDorm.roomTypes[i].destroy({ transaction: t })
       }
+
+
       await deleteDorm.destroy({ transaction: t })
-      await address.destroy({ where: { addressId: deleteDorm.addressId }, transaction: t })
     })
     res.sendStatus(200)
   } catch (err) {
@@ -542,14 +505,24 @@ router.delete('/:dormId', async (req, res, next) => {
 router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
   let editData = JSON.parse(req.body.data)
   let files = req.files
+  let notEditRoom = []
   try {
     await sequelize.transaction(async (t) => {
       //Check for userAccount
-      let owner = await userAccount.findOne({ where: { userId: req.userId } }).then(findUserAccount => {
+      let owner = await userAccount.findOne({ where: { userId: req.userId }, include: [dorm] }).then(findUserAccount => {
         if (findUserAccount.role != "Owner") {
           error = new Error('This account cannot access')
           error.status = 403
           throw error
+        }
+        for (let i in findUserAccount.dorm) {
+          if (findUserAccount.dorm[i].dormId == editData.dormId) {
+            if (findUserAccount.dorm[i].ownerId != req.userId) {
+              error = new Error('This account cannot access')
+              error.status = 403
+              throw error
+            }
+          }
         }
       })
       if (editData.dormId != null || editData.dormId != '' || editData.dormId != 0) {
@@ -586,19 +559,6 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
         })
         await media.destroy({ where: { [Op.and]: { dormId: editData.dormId, roomTypeId: null } }, transaction: t })
         await media.bulkCreate(dormMedia, { transaction: t })
-      }
-      // Edit Address
-      if (editData.address != null || editData.address != undefined) {
-        console.log(editData.address.subDistrictsId)
-        let editAddress = {
-          number: editData.address.number,
-          street: editData.address.street,
-          alley: editData.address.alley,
-          subDistrictId: editData.address.subDistrictsId
-        }
-        await address.update(editAddress, {
-          where: { addressId: editData.address.addressId }, transaction: t
-        })
       }
 
       //Edit RoomType
@@ -650,11 +610,23 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
 
       //Edit Room
       if (editData.room != null || editData.room != undefined) {
-        await room.bulkCreate(editData.room, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
         for (let i in editData.room) {
-          if (editData.room[i].delete) {
-            await booking.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t  })
-            await room.destroy({ where: { roomId: editData.room[i].roomId }, transaction: t })
+          if (editData.room[i].roomId) {
+            await booking.findAll({ where: { roomId: editData.room[i].roomId } }, { transaction: t }).then(findBooking => {
+              for (let i in findBooking) {
+                if (findBooking[i].status == "รอการยืนยัน" || findBooking[i].status == "รอการโอน") {
+                  notEditRoom.push(editData.room[i])
+                }
+              }
+            })
+          }
+        }
+        let editRoom = _.differenceBy(editData.room, notEditRoom, 'roomId');
+        await room.bulkCreate(editRoom, { updateOnDuplicate: ["roomNum", "status", "floors", "description", "roomTypeId"], transaction: t })
+        for (let i in editRoom) {
+          if (editRoom[i].delete) {
+            await booking.destroy({ where: { roomId: editRoom[i].roomId }, transaction: t })
+            await room.destroy({ where: { roomId: editRoom[i].roomId }, transaction: t })
           }
         }
 
@@ -662,14 +634,23 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
       //Edit Bankaccount
       if (editData.bankAccount != null || editData.bankAccount != undefined) {
         await bankAccount.bulkCreate(editData.bankAccount, { updateOnDuplicate: ["accountNum", "accountName", "bankId"], transaction: t })
-        for(let i in editData.bankAccount){
-          if(editData.bankAccount[i].delete){
-            await bankAccount.destroy({ where: {bankAccId : editData.bankAccount[i].bankAccId}, transaction: t})
+        for (let i in editData.bankAccount) {
+          if (editData.bankAccount[i].delete) {
+            await bankAccount.destroy({ where: { bankAccId: editData.bankAccount[i].bankAccId }, transaction: t })
           }
         }
       }
     })
-    res.sendStatus(200)
+    if (notEditRoom.length != 0) {
+      let message = "ห้องเหล่านี้ไม่สามารถเเก้ไขได้ : "
+      for (let i in notEditRoom) {
+        message += 'เลขห้อง : ' + notEditRoom[i].roomNum + ", "
+      }
+      res.json({ message: message }).status(200)
+    }
+    else {
+      res.sendStatus(200)
+    }
   } catch (err) {
     console.log(err)
     next(err)
@@ -677,73 +658,141 @@ router.put('/edit', [upload, jwt.authenticateToken], async (req, res, next) => {
 })
 
 router.post('/search', upload, async (req, res, next) => {
+  const pageasNumber = parseInt(req.query.page)
+  const limitasNumber = parseInt(req.query.limit)
+
+  let page = 0
+  if (!isNaN(pageasNumber) && pageasNumber > 0) {
+    page = pageasNumber
+  }
+
+  let limit = 20
+
+  if (!isNaN(limitasNumber) && limitasNumber > 0) {
+    limit = limitasNumber
+  }
   try {
     const findData = JSON.parse(req.body.data)
     if (_.isNull(findData) || _.isUndefined(findData)) {
-      error = new Error("Cannot read data")
+      const error = new Error("Cannot read data")
       error.status = 500
       throw error
     }
-    let result = [];
-    for (let i in findData) {
-      if (findData[i]) {
-        let searhResult = await dorm.findAll({
-          subQuery: false,
-          where: {
-            [Op.or]: [
-              { 'name': { [Op.substring]: findData[i] } },
-              { 'description': { [Op.substring]: findData[i] } },
-              { '$address.number$': { [Op.substring]: findData[i] } },
-              { '$address.street$': { [Op.substring]: findData[i] } },
-              { '$address.alley$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.name_th$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.zip_code$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.district.name_th$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.district.province.name_th$': { [Op.substring]: findData[i] } },
-              { '$address.subDistrict.district.province.geography.name$': { [Op.substring]: findData[i] } },
-            ]
-          },
-          include: [{
-            model: address,
-            as: 'address',
-            attributes: ['number', 'street', 'alley'],
-            include: {
-              model: subDistricts,
-              attributes: ['name_th', 'zip_code'],
-              include: {
-                model: districts,
-                attributes: ['name_th'],
-                include: {
-                  model: provinces,
-                  attributes: ['name_th', 'img'],
-                  include: {
-                    model: geographies,
-                    attributes: ['name']
-                  }
-                }
-              }
-            }
-          }, { model: roomType, through: { attributes: ['price', 'area', 'deposit'] } }, room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }
-          ]
-        })
-        if (result.length == 0) {
-          result = searhResult
-          continue;
-        }
-        if (searhResult.length != 0) {
-          result = _.intersectionBy(result, searhResult, 'dormId');
-        }
-      }
 
+    console.log(findData)
+    //Order by
+    let orderBy = []
+    let attributeFororderBy = []
+    if (findData.orderBy) {
+      if (findData.orderBy.name) {
+        orderBy.push(['name', findData.orderBy.name])
+      }
+      if (findData.orderBy.address) {
+        orderBy.push(['address', findData.orderBy.address])
+      }
+      if (findData.orderBy.elecPerUnit) {
+        orderBy.push(['elecPerUnit', findData.orderBy.elecPerUnit])
+      }
+      if (findData.orderBy.waterPerUnit) {
+        orderBy.push(['waterPerUnit', findData.orderBy.waterPerUnit])
+      }
+      if (findData.orderBy.freeRoom) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT COUNT(*) FROM room WHERE dorm.dormId = room.dormId AND room.status="ว่าง")'), 'roomCount'])
+        orderBy.push([Sequelize.literal('roomCount'), findData.orderBy.freeRoom])
+      }
+      if (findData.orderBy.price) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT MIN(dormHasRoomType.price) FROM dormHasRoomType WHERE dorm.dormId = dormHasRoomType.dormId )'), 'minPrice'])
+        orderBy.push([Sequelize.literal('minPrice'), findData.orderBy.price])
+      }
+      if (findData.orderBy.deposit) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT MIN(dormHasRoomType.deposit) FROM dormHasRoomType WHERE dorm.dormId = dormHasRoomType.dormId )'), 'minDeposit'])
+        orderBy.push([Sequelize.literal('minDeposit'), findData.orderBy.deposit])
+      }
+      if (findData.orderBy.area) {
+        attributeFororderBy.push([Sequelize.literal('(SELECT MIN(dormHasRoomType.area) FROM dormHasRoomType WHERE dorm.dormId = dormHasRoomType.dormId )'), 'minArea'])
+        orderBy.push([Sequelize.literal('minArea'), findData.orderBy.area])
+      }
+    }
+    //Init Where clause
+    let whereClause = {};
+    let dormWhereClause = {};
+    //Input search name and description
+    if (findData.search != null) {
+      dormWhereClause = {
+        [Op.or]: [
+          { name: { [Op.substring]: findData.search } },
+          { description: { [Op.substring]: findData.search } },
+        ]
+      }
     }
 
+    //Filter by address
+    let searchAddressKeyword
+    if (findData.subDistrict != null) {
+      searchAddressKeyword = findData.subDistrict
+    } else if (findData.district != null) {
+      searchAddressKeyword = findData.district
+    } else if (findData.province != null) {
+      searchAddressKeyword = findData.province
+    } else if (findData.region != null) {
+      searchAddressKeyword = findData.region
+    }
+    if (searchAddressKeyword != null) {
+      dormWhereClause.address = { [Op.substring]: searchAddressKeyword }
+    }
+
+    //Filter by elecPerUnit
+    if (findData.elecPerUnit != null) {
+      findData.elecPerUnit = _.each(findData.elecPerUnit, item => item = _.parseInt(item))
+      dormWhereClause.elecPerUnit = { [Op.between]: findData.elecPerUnit }
+    }
+
+    //Filter by waterPerUnit
+    if (findData.waterPerUnit != null) {
+      findData.waterPerUnit = _.each(findData.waterPerUnit, item => item = _.parseInt(item))
+      dormWhereClause.waterPerUnit = { [Op.between]: findData.waterPerUnit }
+    }
+    //Filter by room price
+    if (findData.price != null) {
+      findData.price = _.each(findData.price, item => item = _.parseInt(item))
+      whereClause.price = { [Op.between]: findData.price }
+    }
+
+    //Filter by room deposit
+    if (findData.deposit != null) {
+      findData.deposit = _.each(findData.deposit, item => item = _.parseInt(item))
+      whereClause.deposit = { [Op.between]: findData.deposit }
+    }
+
+    //Filter by room area
+    if (findData.area != null) {
+      findData.area = _.each(findData.area, item => item = _.parseInt(item))
+      whereClause.area = { [Op.between]: findData.area }
+    }
+
+    // Filter by roomType des
+    let roomTypeWhereClause = {}
+    if (findData.roomTypeDes != null) {
+      roomTypeWhereClause.description = { [Op.substring]: findData.roomTypeDes }
+    }
+    let result = await dorm.findAndCountAll({
+      limit: limit,
+      offset: page * limit,
+      distinct: true,
+      where: dormWhereClause,
+      attributes: {
+        include: attributeFororderBy
+      },
+      include: [room, { model: userAccount, attributes: ['fname', 'lname', 'email', 'phone'] }, media, { model: bankAccount, include: { model: bank } }, { model: roomType, where: roomTypeWhereClause, through: { model: dormHasRoomType, where: whereClause } }],
+      order: orderBy
+    })
     if (!result) {
       error = new Error("Cannot get any dorm")
       error.status = 500
       throw error
-    } else {
-      res.status(200).json({ results: result })
     }
+    res.status(200).json({ results: result.rows, totalPage: Math.ceil(result.count / limit) })
+
   } catch (err) {
     console.log(err)
     next(err)
