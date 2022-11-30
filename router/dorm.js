@@ -679,7 +679,6 @@ router.post('/search', upload, async (req, res, next) => {
       throw error
     }
 
-    console.log(findData)
     //Order by
     let orderBy = []
     let attributeFororderBy = []

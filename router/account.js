@@ -18,21 +18,6 @@ router.use((req, res, next) => {
     next()
 })
 
-router.get('/', async (req, res, next) => {
-    try {
-        var data = await userAccount.findAll()
-        if (!data || data.length == 0) {
-            error = new Error("Cannot get all account")
-            error.status = 500
-            throw error
-        } else {
-            res.status(200).json(data)
-        }
-    } catch (err) {
-        next(err)
-    }
-})
-
 router.post('/register', upload, async (req, res, next) => {
     try {
         let newData = JSON.parse(req.body.data);
@@ -82,7 +67,7 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
             })
         }
         else {
-            if ( req.body == undefined) {
+            if (req.body == undefined) {
                 error = new Error("Cannot login")
                 error.status = 403
                 throw error
@@ -105,7 +90,7 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
                         throw error
                     }
                     let token = jwt.generateAccessToken(findUserAccount.userId)
-                    res.cookie("token", token, { domain:'.dormhub.works',httpOnly: true, sameSite: 'strict' , secure: true})
+                    res.cookie("token", token, { domain: '.dormhub.works', httpOnly: true, sameSite: 'strict', secure: true })
                     let result = _.omit(findUserAccount.dataValues, ['password'])
                     res.status(200).json({ data: result })
                 }
@@ -118,7 +103,7 @@ router.post('/login', [upload, jwt.authenticateToken], async (req, res, next) =>
 
 router.delete('/logout', async (req, res, next) => {
     try {
-        res.clearCookie('token',{ domain:'.dormhub.works',httpOnly: true, sameSite: 'strict' , secure: true})
+        res.clearCookie('token', { domain: '.dormhub.works', httpOnly: true, sameSite: 'strict', secure: true })
         res.status(200).end()
     } catch (err) {
         next(err)

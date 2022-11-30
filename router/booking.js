@@ -250,7 +250,7 @@ router.post('/new', [upload, jwt.authenticateToken], async (req, res, next) => {
                 description: data.description,
                 userId: req.userId,
                 bankAccId: data.bankAccId,
-                roomId: data.roomId
+                roomId: data.roomId,
             }, { transaction: t })
 
             // Update room status
