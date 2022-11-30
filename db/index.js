@@ -8,11 +8,11 @@ const {
 
 // ใช้เชื่อมต่อ DB
 const sequelize = new Sequelize(
-  'int365_dormhub',
-  'int365',
-  '9Q7@e4>+#p;+LHpYd_GU2Y$.a?\\uhCg*', {
-    host: process.env.Database_URL || 'mysql.dormhub.works',
-    port: process.env.Database_Port || '33306',
+    process.env.Database_Schema,
+    process.env.Database_Username,
+    process.env.Database_Password, {
+    host: process.env.Database_URL,
+    port: process.env.Database_Port,
     dialect: 'mysql',
     define: {
       timestamps: false
